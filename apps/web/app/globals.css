@@ -1,0 +1,93 @@
+@import "tailwindcss";
+
+/*
+ * Sofria Design System v1 — RN/Expo dokümanından web/Tailwind'e çevrildi.
+ * Kural: bu token'lar dışında hiçbir yerde ham hex kullanılmaz.
+ */
+@theme {
+  --font-display: var(--font-figtree), ui-sans-serif, system-ui, sans-serif;
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+
+  /* — Marka — */
+  --color-brand: #3E8E63;
+  --color-brand-press: #2F7250;
+  --color-brand-soft: #DDEEE0;
+  --color-brand-tint: #A8D5B5;
+
+  /* — Birincil buton (pastel zemin + koyu metin) — artık kullanılmıyor, geriye dönük referans için tutuluyor */
+  --color-cta-from: #B8DFC2;
+  --color-cta-to: #8FCBA4;
+  --color-on-cta: #173D2A;
+
+  /* — Sıcak vurgu (Sofria birincil buton) — */
+  --color-accent: #C2410C;
+  --color-accent-hover: #9A3412;
+  --color-on-accent: #FFFFFF;
+
+  /* — Zemin gradyanı — */
+  --color-bg-top: #F7FBF5;
+  --color-bg-bottom: #E6F1E2;
+
+  /* — Yüzeyler — */
+  --color-surface: #FFFFFF;
+  --color-surface-muted: #EFF4EC;
+  --color-divider: #DDE7D9;
+
+  /* — Metin — */
+  --color-ink: #12211A;
+  --color-ink-secondary: #3D5147;
+  --color-ink-muted: #7C8E84;
+  --color-on-brand: #FFFFFF;
+
+  /* — Durum — */
+  --color-warning: #C98A16;
+  --color-warning-soft: #FBF1DC;
+  --color-danger: #C4483F;
+  --color-danger-soft: #FBEDEB;
+
+  /* — Yarıçap — */
+  --radius-chip: 999px;
+  --radius-card: 18px;
+  --radius-panel: 20px;
+  --radius-button: 999px;
+  --radius-input: 16px;
+}
+
+body {
+  @apply text-ink antialiased;
+  font-family: var(--font-sans);
+  background: linear-gradient(to bottom, var(--color-bg-top), var(--color-bg-bottom));
+  min-height: 100vh;
+}
+
+main {
+  @apply max-w-3xl mx-auto px-6 py-8;
+}
+
+/* SDD design system §2: rakamlar (bütçe, porsiyon, süre, matchRate) sabit genişlikte. */
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
+
+@keyframes slide-in-right {
+  from { transform: translateX(100%); }
+  to { transform: translateX(0); }
+}
+
+/* F11: klavye ile gezinme için evrensel odak halkası — SDD §8 erişilebilirlik. */
+:focus-visible {
+  outline: 2px solid var(--color-brand);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* Doküman §7: "Plan oluşturuluyor: tek bir sakin nefes animasyonu (opaklık 0.6↔1), 1400ms döngü". */
+@keyframes breathe {
+  0%, 100% { opacity: 0.5; }
+  50% { opacity: 1; }
+}
