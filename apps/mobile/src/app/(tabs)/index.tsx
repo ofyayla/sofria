@@ -5,6 +5,7 @@ import { useState } from "react";
 import { Image, Pressable, StyleSheet, Text, View } from "react-native";
 import { getDishImage } from "../../assets/dishImages";
 import { RecipeDetailModal } from "../../components/plan/RecipeDetailModal";
+import { usePlanSwap } from "../../hooks/usePlanSwap";
 import { dishIcon } from "../../lib/dishIcon";
 import { GlassView, IconCircleButton, PrimaryButton, Screen, SegmentedPill, TwoToneHeadline } from "../../components/ui";
 import {
@@ -36,6 +37,7 @@ export default function TodayScreen() {
 
   const [mealType, setMealType] = useState<Meal["type"] | undefined>(undefined);
   const [openRecipeId, setOpenRecipeId] = useState<string | null>(null);
+  const { requestSwap, element: swapElement } = usePlanSwap();
 
   const meals = day?.meals ?? [];
   const meal = meals.find((m) => m.type === mealType) ?? pickMealForNow(meals);
@@ -118,6 +120,7 @@ export default function TodayScreen() {
     <Screen
       tone="dark"
       withTabBar
+      overlay={swapElement}
       backgroundImage={backgroundImage}
       backgroundFallback={
         <View style={styles.bgFallback}>
@@ -181,7 +184,17 @@ export default function TodayScreen() {
         )}
       </View>
 
-      {openRecipeId && <RecipeDetailModal plan={plan} openSubRecipeId={openRecipeId} onClose={() => setOpenRecipeId(null)} />}
+      {openRecipeId && (
+        <RecipeDetailModal
+          plan={plan}
+          openSubRecipeId={openRecipeId}
+          onClose={() => setOpenRecipeId(null)}
+          onSwap={(mealId, subId) => {
+            setOpenRecipeId(null);
+            requestSwap(mealId, subId, 450);
+          }}
+        />
+      )}
     </Screen>
   );
 }

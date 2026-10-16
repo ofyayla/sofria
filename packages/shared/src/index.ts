@@ -5,6 +5,7 @@
  */
 
 export * from "./constants/versions.js";
+export * from "./constants/dishImages.js";
 
 export * from "./enums/unit.js";
 export * from "./enums/cuisine.js";

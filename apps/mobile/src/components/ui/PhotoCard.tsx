@@ -1,5 +1,5 @@
 import { LinearGradient } from "expo-linear-gradient";
-import { ArrowUpRight, UtensilsCrossed, type LucideIcon } from "lucide-react-native";
+import { ArrowUpRight, RefreshCw, UtensilsCrossed, type LucideIcon } from "lucide-react-native";
 import { Image, Pressable, StyleSheet, Text, View, type ImageSourcePropType } from "react-native";
 import Animated, { useAnimatedStyle, useSharedValue, withTiming } from "react-native-reanimated";
 import { fillImage, colors, motion, radius, size, space, textStyle, type } from "../../theme";
@@ -16,6 +16,8 @@ export interface PhotoCardProps {
   /** Görsel yoksa (bazı kahvaltılıklar) gösterilecek ikon. */
   fallbackIcon?: LucideIcon;
   accessibilityLabel?: string;
+  /** Verilirse sağ üstte "Değiştir" (↻) dairesi çıkar. */
+  onSwap?: () => void;
 }
 
 /**
@@ -32,56 +34,97 @@ export function PhotoCard({
   height = 320,
   fallbackIcon: FallbackIcon = UtensilsCrossed,
   accessibilityLabel,
+  onSwap,
 }: PhotoCardProps) {
   const pressed = useSharedValue(0);
-  const animatedStyle = useAnimatedStyle(() => ({ transform: [{ scale: 1 - pressed.value * 0.02 }] }));
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: 1 - pressed.value * 0.02 }],
+  }));
 
+  // Değiştir butonu kartın Pressable'ının İÇİNDE değil kardeşi olarak durur —
+  // iç içe buton hem web'de geçersiz DOM hem ekran okuyucuda tek düğme olur.
   return (
-    <Pressable
-      onPress={onPress}
-      onPressIn={() => (pressed.value = withTiming(1, { duration: motion.pressScaleMs }))}
-      onPressOut={() => (pressed.value = withTiming(0, { duration: motion.pressScaleMs }))}
-      accessibilityRole="button"
-      accessibilityLabel={accessibilityLabel ?? `${title}${meta ? `, ${meta}` : ""}. Tarifi aç`}
-    >
-      <Animated.View style={[styles.card, { height }, animatedStyle]}>
-        {image ? (
-          <Image source={image} style={fillImage} resizeMode="cover" />
-        ) : (
-          <View style={[StyleSheet.absoluteFill, styles.fallback]}>
-            <FallbackIcon size={72} color={colors.accent} strokeWidth={1.5} />
-          </View>
-        )}
-        <LinearGradient colors={[colors.scrimClear, colors.scrim]} style={styles.scrim} />
+    <View>
+      <Pressable
+        onPress={onPress}
+        onPressIn={() => (pressed.value = withTiming(1, { duration: motion.pressScaleMs }))}
+        onPressOut={() => (pressed.value = withTiming(0, { duration: motion.pressScaleMs }))}
+        accessibilityRole="button"
+        accessibilityLabel={accessibilityLabel ?? `${title}${meta ? `, ${meta}` : ""}. Tarifi aç`}
+      >
+        <Animated.View style={[styles.card, { height }, animatedStyle]}>
+          {image ? (
+            <Image source={image} style={fillImage} resizeMode="cover" />
+          ) : (
+            <View style={[StyleSheet.absoluteFill, styles.fallback]}>
+              <FallbackIcon size={72} color={colors.accent} strokeWidth={1.5} />
+            </View>
+          )}
+          <LinearGradient colors={[colors.scrimClear, colors.scrim]} style={styles.scrim} />
 
-        {eyebrow && (
-          <GlassView style={styles.eyebrow}>
-            <Text style={styles.eyebrowText}>{eyebrow}</Text>
+          {eyebrow && (
+            <GlassView style={styles.eyebrow}>
+              <Text style={styles.eyebrowText}>{eyebrow}</Text>
+            </GlassView>
+          )}
+
+          <View style={styles.bottom}>
+            <View style={styles.textCol}>
+              <Text style={styles.title} numberOfLines={2}>
+                {title}
+              </Text>
+              {meta && <Text style={styles.meta}>{meta}</Text>}
+            </View>
+            <View style={styles.action}>
+              <ArrowUpRight size={24} color={colors.onAccent} />
+            </View>
+          </View>
+        </Animated.View>
+      </Pressable>
+      {onSwap && (
+        <Pressable
+          onPress={onSwap}
+          accessibilityRole="button"
+          accessibilityLabel={`${title} yerine başka bir yemek seç`}
+          hitSlop={6}
+          style={styles.swap}
+        >
+          <GlassView style={styles.swapInner}>
+            <View style={styles.swapIcon}>
+              <RefreshCw size={18} color={colors.onNight} />
+            </View>
           </GlassView>
-        )}
-
-        <View style={styles.bottom}>
-          <View style={styles.textCol}>
-            <Text style={styles.title} numberOfLines={2}>
-              {title}
-            </Text>
-            {meta && <Text style={styles.meta}>{meta}</Text>}
-          </View>
-          <View style={styles.action}>
-            <ArrowUpRight size={24} color={colors.onAccent} />
-          </View>
-        </View>
-      </Animated.View>
-    </Pressable>
+        </Pressable>
+      )}
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   card: { borderRadius: radius.card, overflow: "hidden", backgroundColor: colors.nightRaised },
-  fallback: { backgroundColor: colors.nightRaised, alignItems: "center", justifyContent: "center", paddingBottom: 60 },
+  fallback: {
+    backgroundColor: colors.nightRaised,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingBottom: 60,
+  },
   scrim: { position: "absolute", left: 0, right: 0, bottom: 0, height: "62%" },
-  eyebrow: { position: "absolute", top: space.lg, left: space.lg, borderRadius: radius.pill, paddingHorizontal: 14, paddingVertical: 8 },
-  eyebrowText: { ...textStyle(type.caption), fontFamily: type.cardTitle.font, color: colors.onNight },
+  eyebrow: {
+    position: "absolute",
+    top: space.lg,
+    left: space.lg,
+    borderRadius: radius.pill,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+  },
+  eyebrowText: {
+    ...textStyle(type.caption),
+    fontFamily: type.cardTitle.font,
+    color: colors.onNight,
+  },
+  swap: { position: "absolute", top: space.md, right: space.md },
+  swapInner: { width: 44, height: 44, borderRadius: 22 },
+  swapIcon: { flex: 1, alignItems: "center", justifyContent: "center" },
   bottom: {
     position: "absolute",
     left: space.xl - 4,

@@ -1,14 +1,39 @@
 import type { Meal, SubRecipe } from "@sofria/shared";
 import { useRouter } from "expo-router";
-import { Ellipsis } from "lucide-react-native";
+import { Ellipsis, RefreshCw } from "lucide-react-native";
 import { useEffect, useRef, useState } from "react";
-import { ActionSheetIOS, Alert, FlatList, Image, Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import {
+  ActionSheetIOS,
+  Alert,
+  FlatList,
+  Image,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
-import Animated, { Easing, runOnJS, useAnimatedStyle, useSharedValue, withTiming } from "react-native-reanimated";
+import Animated, {
+  Easing,
+  runOnJS,
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming,
+} from "react-native-reanimated";
 import { getDishImage } from "../../assets/dishImages";
 import { RecipeDetailModal } from "../../components/plan/RecipeDetailModal";
+import { usePlanSwap } from "../../hooks/usePlanSwap";
 import { dishIcon } from "../../lib/dishIcon";
-import { IconCircleButton, PhotoCard, PrimaryButton, Screen, ScreenHeader, TwoToneHeadline } from "../../components/ui";
+import {
+  IconCircleButton,
+  PhotoCard,
+  PrimaryButton,
+  Screen,
+  ScreenHeader,
+  TwoToneHeadline,
+} from "../../components/ui";
 import {
   COMPLEXITY_LABELS,
   dayOfMonth,
@@ -22,7 +47,15 @@ import {
   totalMinutes,
 } from "../../lib/planDisplay";
 import { usePlanStore } from "../../stores/plan.store";
-import { colors, radius, space, tabularNums, TAB_BAR_CLEARANCE, textStyle, type } from "../../theme";
+import {
+  colors,
+  radius,
+  space,
+  tabularNums,
+  TAB_BAR_CLEARANCE,
+  textStyle,
+  type,
+} from "../../theme";
 
 const SWIPE_THRESHOLD = 60;
 
@@ -31,13 +64,17 @@ export default function WeekScreen() {
   const plan = usePlanStore((s) => s.currentPlan);
   const [activeDayIndex, setActiveDayIndex] = useState(() => (plan ? findFocusDay(plan).index : 0));
   const [openRecipeId, setOpenRecipeId] = useState<string | null>(null);
+  const { requestSwap, element: swapElement } = usePlanSwap();
   const dayListRef = useRef<FlatList>(null);
   // Gün değişince liste kayarak gelir. Reanimated `entering` KULLANILMIYOR:
   // içeriği visibility:hidden başlatıp animasyon başlayınca açıyor; sekmeye
   // doğrudan gelindiğinde animasyon başlamayıp liste görünmez kalıyordu.
   const slideX = useSharedValue(0);
   const fade = useSharedValue(1);
-  const slideStyle = useAnimatedStyle(() => ({ opacity: fade.value, transform: [{ translateX: slideX.value }] }));
+  const slideStyle = useAnimatedStyle(() => ({
+    opacity: fade.value,
+    transform: [{ translateX: slideX.value }],
+  }));
 
   // Yeni plan gelince odak bugüne (ya da planın ilk gününe) döner.
   const planId = plan?.planId;
@@ -56,8 +93,15 @@ export default function WeekScreen() {
         <ScreenHeader tone="light" title="Haftalık plan" left={null} />
         <View style={styles.empty}>
           <TwoToneHeadline tone="light" muted="Henüz bir" strong="planın yok" />
-          <Text style={styles.emptyHint}>Birkaç tercihle 7 günlük menünü ve market listeni hazırlayalım.</Text>
-          <PrimaryButton label="Haftalık planımı oluştur" showArrow tone="light" onPress={() => router.push("/plan")} />
+          <Text style={styles.emptyHint}>
+            Birkaç tercihle 7 günlük menünü ve market listeni hazırlayalım.
+          </Text>
+          <PrimaryButton
+            label="Haftalık planımı oluştur"
+            showArrow
+            tone="light"
+            onPress={() => router.push("/plan")}
+          />
         </View>
       </Screen>
     );
@@ -81,7 +125,12 @@ export default function WeekScreen() {
     const message = "Yeni plan oluşturulunca bu haftanın planı ve market işaretlerin değişir.";
     if (Platform.OS === "ios") {
       ActionSheetIOS.showActionSheetWithOptions(
-        { options: ["Yeni plan oluştur", "Vazgeç"], destructiveButtonIndex: 0, cancelButtonIndex: 1, message },
+        {
+          options: ["Yeni plan oluştur", "Vazgeç"],
+          destructiveButtonIndex: 0,
+          cancelButtonIndex: 1,
+          message,
+        },
         (i) => i === 0 && regenerate()
       );
     } else {
@@ -106,15 +155,28 @@ export default function WeekScreen() {
     });
 
   return (
-    <Screen tone="light" scroll={false} contentContainerStyle={styles.noPad}>
+    <Screen tone="light" scroll={false} contentContainerStyle={styles.noPad} overlay={swapElement}>
       <View style={styles.top}>
         <ScreenHeader
           tone="light"
           title="Haftalık plan"
           left={null}
-          right={<IconCircleButton icon={Ellipsis} accessibilityLabel="Diğer seçenekler" variant="muted" onPress={openMoreMenu} />}
+          right={
+            <IconCircleButton
+              icon={Ellipsis}
+              accessibilityLabel="Diğer seçenekler"
+              variant="muted"
+              onPress={openMoreMenu}
+            />
+          }
         />
-        <TwoToneHeadline tone="light" layout="split" size="title" muted="Bu haftanın" strong="sofrası" caption={formatPlanRange(plan.days)} />
+        <TwoToneHeadline
+          tone="light"
+          size="title"
+          muted="Bu haftanın"
+          strong="sofrası"
+          caption={formatPlanRange(plan.days)}
+        />
       </View>
 
       <FlatList
@@ -137,7 +199,9 @@ export default function WeekScreen() {
               accessibilityLabel={`${item.dayName} ${dayOfMonth(item.date)}${isToday ? ", bugün" : ""}`}
               style={[styles.dayPill, active && styles.dayPillActive]}
             >
-              {isToday && <Text style={[styles.todayTag, active && styles.dayTextActive]}>BUGÜN</Text>}
+              {isToday && (
+                <Text style={[styles.todayTag, active && styles.dayTextActive]}>BUGÜN</Text>
+              )}
               <Text style={[styles.dayText, tabularNums, active && styles.dayTextActive]}>
                 {shortDayName(item.dayName)} {dayOfMonth(item.date)}
               </Text>
@@ -154,20 +218,45 @@ export default function WeekScreen() {
           showsVerticalScrollIndicator={false}
         >
           {(activeDay?.meals ?? []).map((meal) => (
-            <MealBlock key={meal.mealId} meal={meal} onOpenRecipe={setOpenRecipeId} />
+            <MealBlock
+              key={meal.mealId}
+              meal={meal}
+              onOpenRecipe={setOpenRecipeId}
+              onSwap={(subId) => requestSwap(meal.mealId, subId)}
+            />
           ))}
         </Animated.ScrollView>
       </GestureDetector>
 
-      {openRecipeId && <RecipeDetailModal plan={plan} openSubRecipeId={openRecipeId} onClose={() => setOpenRecipeId(null)} />}
+      {openRecipeId && (
+        <RecipeDetailModal
+          plan={plan}
+          openSubRecipeId={openRecipeId}
+          onClose={() => setOpenRecipeId(null)}
+          onSwap={(mealId, subId) => {
+            setOpenRecipeId(null);
+            requestSwap(mealId, subId, 450);
+          }}
+        />
+      )}
     </Screen>
   );
 }
 
-function MealBlock({ meal, onOpenRecipe }: { meal: Meal; onOpenRecipe: (subRecipeId: string) => void }) {
+function MealBlock({
+  meal,
+  onOpenRecipe,
+  onSwap,
+}: {
+  meal: Meal;
+  onOpenRecipe: (subRecipeId: string) => void;
+  onSwap: (subRecipeId: string) => void;
+}) {
   const featured = featuredDish(meal);
   const sides = meal.subRecipes.filter((s) => s.subRecipeId !== featured.subRecipeId);
-  const kcal = featured.estimatedKcalPerServing ? ` · ~${featured.estimatedKcalPerServing} kcal` : "";
+  const kcal = featured.estimatedKcalPerServing
+    ? ` · ~${featured.estimatedKcalPerServing} kcal`
+    : "";
 
   return (
     <View style={styles.mealBlock}>
@@ -179,11 +268,22 @@ function MealBlock({ meal, onOpenRecipe }: { meal: Meal; onOpenRecipe: (subRecip
         meta={`${totalMinutes(featured)} dk${kcal}`}
         height={meal.type === "aksam" ? 320 : 260}
         onPress={() => onOpenRecipe(featured.subRecipeId)}
+        onSwap={() => onSwap(featured.subRecipeId)}
       />
       {sides.length > 0 && (
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.sides} style={styles.sidesScroll}>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.sides}
+          style={styles.sidesScroll}
+        >
           {sides.map((sub) => (
-            <SideDish key={sub.subRecipeId} sub={sub} onPress={() => onOpenRecipe(sub.subRecipeId)} />
+            <SideDish
+              key={sub.subRecipeId}
+              sub={sub}
+              onPress={() => onOpenRecipe(sub.subRecipeId)}
+              onSwap={() => onSwap(sub.subRecipeId)}
+            />
           ))}
         </ScrollView>
       )}
@@ -191,32 +291,51 @@ function MealBlock({ meal, onOpenRecipe }: { meal: Meal; onOpenRecipe: (subRecip
   );
 }
 
-function SideDish({ sub, onPress }: { sub: SubRecipe; onPress: () => void }) {
+function SideDish({
+  sub,
+  onPress,
+  onSwap,
+}: {
+  sub: SubRecipe;
+  onPress: () => void;
+  onSwap: () => void;
+}) {
   const image = getDishImage(sub.imageSlug);
   const Icon = dishIcon(sub.role);
   return (
-    <Pressable
-      onPress={onPress}
-      accessibilityRole="button"
-      accessibilityLabel={`${sub.name}, ${ROLE_LABELS[sub.role]}, ${totalMinutes(sub)} dakika. Tarifi aç`}
-      style={({ pressed }) => [styles.side, pressed && styles.pressed]}
-    >
-      {image ? (
-        <Image source={image} style={styles.sideImage} />
-      ) : (
-        <View style={[styles.sideImage, styles.sideIcon]}>
-          <Icon size={20} color={colors.ink} />
+    <View style={styles.side}>
+      <Pressable
+        onPress={onPress}
+        accessibilityRole="button"
+        accessibilityLabel={`${sub.name}, ${ROLE_LABELS[sub.role]}, ${totalMinutes(sub)} dakika. Tarifi aç`}
+        style={({ pressed }) => [styles.sideMain, pressed && styles.pressed]}
+      >
+        {image ? (
+          <Image source={image} style={styles.sideImage} />
+        ) : (
+          <View style={[styles.sideImage, styles.sideIcon]}>
+            <Icon size={20} color={colors.ink} />
+          </View>
+        )}
+        <View style={styles.sideText}>
+          <Text style={styles.sideName} numberOfLines={1}>
+            {sub.name}
+          </Text>
+          <Text style={styles.sideMeta}>
+            {ROLE_LABELS[sub.role]} · {totalMinutes(sub)} dk
+          </Text>
         </View>
-      )}
-      <View style={styles.sideText}>
-        <Text style={styles.sideName} numberOfLines={1}>
-          {sub.name}
-        </Text>
-        <Text style={styles.sideMeta}>
-          {ROLE_LABELS[sub.role]} · {totalMinutes(sub)} dk
-        </Text>
-      </View>
-    </Pressable>
+      </Pressable>
+      <Pressable
+        onPress={onSwap}
+        accessibilityRole="button"
+        accessibilityLabel={`${sub.name} yerine başka bir yemek seç`}
+        hitSlop={8}
+        style={styles.sideSwap}
+      >
+        <RefreshCw size={15} color={colors.inkSecondary} />
+      </Pressable>
+    </View>
   );
 }
 
@@ -238,7 +357,12 @@ const styles = StyleSheet.create({
   dayPillActive: { backgroundColor: colors.accent },
   dayText: { ...textStyle(type.bodyMedium), color: colors.ink },
   dayTextActive: { color: colors.onAccent, fontFamily: type.button.font },
-  todayTag: { ...textStyle(type.eyebrow), fontSize: 10, lineHeight: 12, color: colors.inkSecondary },
+  todayTag: {
+    ...textStyle(type.eyebrow),
+    fontSize: 10,
+    lineHeight: 12,
+    color: colors.inkSecondary,
+  },
   meals: { paddingHorizontal: 20, gap: space.xl, paddingBottom: TAB_BAR_CLEARANCE },
   mealBlock: { gap: space.md },
   sidesScroll: { marginHorizontal: -20 },
@@ -246,15 +370,25 @@ const styles = StyleSheet.create({
   side: {
     height: 64,
     paddingLeft: space.sm,
-    paddingRight: space.lg,
+    paddingRight: space.sm,
     borderRadius: radius.pill,
     backgroundColor: colors.surface,
     flexDirection: "row",
     alignItems: "center",
     gap: 10,
-    maxWidth: 240,
+    maxWidth: 270,
   },
   pressed: { opacity: 0.7 },
+  sideMain: { flexDirection: "row", alignItems: "center", gap: 10, flexShrink: 1 },
+  sideSwap: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: colors.canvas,
+    alignItems: "center",
+    justifyContent: "center",
+    marginLeft: 2,
+  },
   sideImage: { width: 48, height: 48, borderRadius: 24 },
   sideIcon: { backgroundColor: colors.canvas, alignItems: "center", justifyContent: "center" },
   sideText: { flexShrink: 1 },

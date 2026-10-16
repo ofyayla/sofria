@@ -1,7 +1,9 @@
 import type { CuisineType, RatedRecipeSnapshot } from "@sofria/shared";
 import { Star } from "lucide-react-native";
 import { useState } from "react";
-import { StyleSheet, Text, TextInput, View } from "react-native";
+import { Alert, Platform, StyleSheet, Text, TextInput, View } from "react-native";
+import { findCatalogRecipe } from "../../engine";
+import { useDislikedRecipesStore } from "../../stores/dislikedRecipes.store";
 import { useRatingsStore } from "../../stores/ratings.store";
 import { colors, radius, space, textStyle, type } from "../../theme";
 import { PrimaryButton, SecondaryButton } from "../ui";
@@ -26,6 +28,7 @@ export interface RatingFormProps {
 export function RatingForm(props: RatingFormProps) {
   const ratings = useRatingsStore((s) => s.ratings);
   const addRating = useRatingsStore((s) => s.addRating);
+  const addDisliked = useDislikedRecipesStore((s) => s.add);
   const existing = ratings.find(
     (r) => r.sourceMealId === props.sourceMealId && r.sourceSubRecipeId === props.sourceSubRecipeId
   );
@@ -67,6 +70,23 @@ export function RatingForm(props: RatingFormProps) {
       ...(props.recipeSnapshot !== undefined ? { recipeSnapshot: props.recipeSnapshot } : {}),
     });
     setExpanded(false);
+    if (stars <= 2) offerDislike();
+  }
+
+  /** Düşük puan = muhtemelen bir daha görmek istemiyor; sormadan eklemeyiz. */
+  function offerDislike() {
+    const slug = props.recipeSnapshot?.imageSlug ?? findCatalogRecipe({ name: props.recipeName })?.slug;
+    if (!slug) return;
+    const title = "Bu tarif bir daha önerilmesin mi?";
+    const message = "Sonraki planlarda çıkmaz. Kurallarım'dan geri alabilirsin.";
+    if (Platform.OS === "web") {
+      if (window.confirm(`${title}\n${message}`)) addDisliked(slug, props.recipeName);
+      return;
+    }
+    Alert.alert(title, message, [
+      { text: "Önerilebilir", style: "cancel" },
+      { text: "Önerilmesin", onPress: () => addDisliked(slug, props.recipeName) },
+    ]);
   }
 
   return (

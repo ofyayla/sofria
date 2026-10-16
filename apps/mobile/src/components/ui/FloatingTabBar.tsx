@@ -88,11 +88,11 @@ export function FloatingTabBar({ state, navigation }: BottomTabBarProps) {
 
   return (
     <View style={[styles.wrap, { bottom: insets.bottom > 0 ? insets.bottom : space.xl }]} pointerEvents="box-none">
-      {onPhoto ? (
-        <GlassView style={[styles.bar, shadow.floating]}>{items}</GlassView>
-      ) : (
-        <View style={[styles.bar, styles.ink, shadow.floating]}>{items}</View>
-      )}
+      {/* Her ekranda cam: fotoğraflı "Bugün"de saf cam, açık zeminli ekranlarda
+          içerik altından kayarken görünsün diye koyu tonlu cam. */}
+      <GlassView intensity={onPhoto ? 40 : 70} style={[styles.bar, !onPhoto && styles.onLight, shadow.floating]}>
+        {items}
+      </GlassView>
     </View>
   );
 }
@@ -100,7 +100,7 @@ export function FloatingTabBar({ state, navigation }: BottomTabBarProps) {
 const styles = StyleSheet.create({
   wrap: { position: "absolute", left: gutter, right: gutter },
   bar: { height: size.tabBar, borderRadius: radius.pill },
-  ink: { backgroundColor: colors.night },
+  onLight: { backgroundColor: colors.glassNight },
   inner: { flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 10 },
   item: { width: size.circleMd, height: size.circleMd, borderRadius: size.circleMd / 2, alignItems: "center", justifyContent: "center" },
   itemActive: { backgroundColor: colors.accent },

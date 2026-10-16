@@ -8,6 +8,7 @@ import { SummaryStep } from "../components/wizard/SummaryStep";
 import { PrimaryButton, WizardScreen } from "../components/ui";
 import { useGeneratePlan } from "../hooks/useGeneratePlan";
 import { mergeDietary, mergeEquipment } from "../lib/mergeConstraints";
+import { dislikedSlugSet, useDislikedRecipesStore } from "../stores/dislikedRecipes.store";
 import { usePlanStore } from "../stores/plan.store";
 import { usePreferencesStore } from "../stores/preferences.store";
 import { useRulesProfileStore } from "../stores/rulesProfile.store";
@@ -40,6 +41,7 @@ export default function PlanWizardScreen() {
   const rulesProfile = useRulesProfileStore();
   const setPlan = usePlanStore((s) => s.setPlan);
   const generatePlan = useGeneratePlan();
+  const disliked = useDislikedRecipesStore((s) => s.items);
 
   const effectiveDietary = mergeDietary(rulesProfile.dietary, prefs.sessionDietaryOverrides);
   const effectiveEquipment = mergeEquipment(rulesProfile.equipment, prefs.sessionEquipmentOverrides);
@@ -96,9 +98,9 @@ export default function PlanWizardScreen() {
       daysCount: 7,
     };
 
-    const response = await generatePlan.mutateAsync(payload);
+    const response = await generatePlan.mutateAsync({ payload, excludedSlugs: dislikedSlugSet(disliked) });
     if (response.ok) {
-      setPlan(response.data);
+      setPlan(response.data, payload);
       prefs.clearSessionOverrides();
       // Sihirbaz sekmelerin üstünde modal: kapat ve Plan sekmesine geç.
       if (router.canDismiss()) router.dismissTo("/haftam");

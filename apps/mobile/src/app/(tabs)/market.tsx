@@ -1,7 +1,7 @@
 import { UNIT_LABELS, type AisleGroup, type ShoppingItem } from "@sofria/shared";
 import * as Haptics from "expo-haptics";
 import { useRouter } from "expo-router";
-import { Check, Share2 } from "lucide-react-native";
+import { Check, Share2, X } from "lucide-react-native";
 import { Pressable, Share, StyleSheet, Text, View } from "react-native";
 import Animated, { LinearTransition } from "react-native-reanimated";
 import { IconCircleButton, PrimaryButton, Screen, ScreenHeader, SectionLabel, shoppingItemKey, TwoToneHeadline } from "../../components/ui";
@@ -24,6 +24,8 @@ export default function MarketScreen() {
   // ekranı yeniden render ettirmiyordu (gerçek kullanıcı testi). Veriye abone ol.
   const checkedByPlan = useShoppingStore((s) => s.checkedByPlan);
   const toggleItem = useShoppingStore((s) => s.toggleItem);
+  const orphansByPlan = useShoppingStore((s) => s.orphansByPlan);
+  const dismissOrphan = useShoppingStore((s) => s.dismissOrphan);
 
   if (!plan) {
     return (
@@ -90,6 +92,32 @@ export default function MarketScreen() {
       </View>
 
       <View style={styles.aisles}>
+        {(orphansByPlan[plan.planId] ?? []).length > 0 && (
+          <View>
+            <SectionLabel>ARTIK GEREKMİYOR</SectionLabel>
+            <Text style={styles.orphanHint}>Sepete attığın bu ürünler, değiştirdiğin yemekler yüzünden artık planda yok.</Text>
+            <View style={styles.items}>
+              {(orphansByPlan[plan.planId] ?? []).map((o) => (
+                <View key={o.key} style={[styles.row, styles.rowChecked]}>
+                  <View style={[styles.checkbox, styles.checkboxChecked]}>
+                    <Check size={16} color={colors.accent} strokeWidth={3} />
+                  </View>
+                  <Text style={[styles.itemName, styles.textChecked]}>{o.displayName}</Text>
+                  <Text style={[styles.itemAmount, tabularNums, styles.textChecked]}>{o.amountLabel}</Text>
+                  <Pressable
+                    onPress={() => dismissOrphan(plan.planId, o.key)}
+                    accessibilityRole="button"
+                    accessibilityLabel={`${o.displayName}, listeden kaldır`}
+                    hitSlop={8}
+                    style={styles.orphanDismiss}
+                  >
+                    <X size={16} color={colors.inkSecondary} />
+                  </Pressable>
+                </View>
+              ))}
+            </View>
+          </View>
+        )}
         {plan.shoppingList.aisles.map((group) => (
           <AisleSection
             key={group.aisle}
@@ -183,5 +211,7 @@ const styles = StyleSheet.create({
   itemAmount: { ...textStyle(type.helper), fontSize: 15, color: colors.inkSecondary },
   textChecked: { color: colors.inkMuted, textDecorationLine: "line-through" },
   empty: { flex: 1, justifyContent: "center", gap: space.lg },
+  orphanHint: { ...textStyle(type.caption), color: colors.inkSecondary, marginTop: -4, marginBottom: space.sm },
+  orphanDismiss: { width: 32, height: 32, borderRadius: 16, backgroundColor: colors.surface, alignItems: "center", justifyContent: "center" },
   emptyHint: { ...textStyle(type.body), color: colors.inkSecondary },
 });

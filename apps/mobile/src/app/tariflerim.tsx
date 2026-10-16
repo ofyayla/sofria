@@ -66,7 +66,6 @@ export default function TariflerimScreen() {
       <View style={styles.headline}>
         <TwoToneHeadline
           tone="light"
-          layout="split"
           size="title"
           muted="Tarif"
           strong="defterim"

@@ -12,7 +12,7 @@ import type {
   SubRecipe,
   UserPreferencesPayload,
 } from "@sofria/shared";
-import { MEAL_COMPLEXITY_SUBRECIPE_COUNT } from "@sofria/shared";
+import { DISH_IMAGE_SLUGS, MEAL_COMPLEXITY_SUBRECIPE_COUNT } from "@sofria/shared";
 import { mentionsOven } from "../domain/equipmentCheck";
 import { findForbiddenKeyword } from "../domain/forbiddenIngredients";
 import { roundForRecipe } from "../domain/units.converter";
@@ -44,6 +44,16 @@ const MEAL_TYPE_SORT_INDEX: Record<MealType, number> = { kahvalti: 0, ogle: 1, a
 
 function pick<T>(arr: T[]): T {
   return arr[Math.floor(Math.random() * arr.length)]!;
+}
+
+/**
+ * Gerçek kullanıcı talebi: fotoğrafı olmayan tarif de önerilebilir ama
+ * öncelik fotoğraflı olanlarda. Tekrar aralığı vb. kurallarla elenmiş
+ * adaylar arasında fotoğraflı olan varsa yalnızca onlardan seçilir.
+ */
+function preferWithPhoto(candidates: CatalogRecipe[]): CatalogRecipe[] {
+  const withPhoto = candidates.filter((r) => DISH_IMAGE_SLUGS.has(r.imageSlug));
+  return withPhoto.length > 0 ? withPhoto : candidates;
 }
 
 function shuffle<T>(arr: T[]): T[] {
@@ -276,7 +286,7 @@ function pickFromPool(
   const minGapDays = minRepeatGapForRole(role);
   const fresh = roleAndCuisine.filter((r) => passesRepeatGap(r.slug, dayIndex, usedDays, minGapDays));
   const candidates = fresh.length > 0 ? fresh : leastRecentlyUsedCandidates(roleAndCuisine, dayIndex, usedDays);
-  return pick(candidates);
+  return pick(preferWithPhoto(candidates));
 }
 
 function hasCandidate(pool: CatalogRecipe[], role: SubRecipe["role"], cuisine: CuisineType): boolean {
@@ -306,12 +316,82 @@ function rolesForComplexity(complexity: MealComplexity, pool: CatalogRecipe[], c
   return ["corba", "ana_yemek", "yan_lezzet"];
 }
 
-export function buildCatalogPlan(payload: UserPreferencesPayload): DayPlan[] {
+/**
+ * Gerçek kullanıcı testinde bulundu: "Tam menü" (3 çeşit) seçilince bazı
+ * günler 2 çeşit geliyordu — o mutfakta uygun yan lezzet/çorba yoksa (örn.
+ * Ortadoğu, İtalyan) ya da seçilen yemekle uyumsuzsa rol sessizce
+ * atlanıyordu. Her çeşit yeri artık bir YEDEK ROL SIRASI taşır; ilk rol
+ * bulunamazsa sıradaki denenir. Ana yemek yedeksizdir.
+ */
+const ROLE_FALLBACKS: Partial<Record<SubRecipe["role"], SubRecipe["role"][]>> = {
+  corba: ["corba", "salata", "yan_lezzet"],
+  yan_lezzet: ["yan_lezzet", "pilav_makarna", "salata"],
+  pilav_makarna: ["pilav_makarna", "yan_lezzet", "salata"],
+  salata: ["salata", "yan_lezzet", "pilav_makarna"],
+};
+
+/**
+ * Yan yemek için son çare: seçilen mutfakta hiçbir yedek rol bulunamadıysa
+ * mutfak şartı gevşetilir (pilav/salata mutfaklar arası ortaktır) — diyet,
+ * ekipman ve süre kısıtları havuzda zaten uygulanmış durumda. Balık
+ * öğünündeki süt ürünü yasağı korunur. Ana yemek her zaman mutfaktan gelir.
+ */
+function pickSideAnyCuisine(
+  pool: CatalogRecipe[],
+  role: SubRecipe["role"],
+  cuisine: CuisineType,
+  usedDays: Map<string, number[]>,
+  dayIndex: number,
+  alreadyChosenInMeal: CatalogRecipe[]
+): CatalogRecipe | undefined {
+  const candidates = pool.filter(
+    (r) =>
+      r.role === role &&
+      !alreadyChosenInMeal.some((c) => c.slug === r.slug) &&
+      !isIncompatible(r, alreadyChosenInMeal) &&
+      !(cuisine === "balik_urunleri" && containsDairyExcludingButter(r))
+  );
+  if (candidates.length === 0) return undefined;
+  const fresh = candidates.filter((r) => passesRepeatGap(r.slug, dayIndex, usedDays, minRepeatGapForRole(role)));
+  return pick(preferWithPhoto(fresh.length > 0 ? fresh : leastRecentlyUsedCandidates(candidates, dayIndex, usedDays)));
+}
+
+/** Bir çeşit yeri için tarif: önce mutfakla eşleşen yedek roller, sonra (yan yemekse) mutfak dışı. */
+function pickForSlot(
+  pool: CatalogRecipe[],
+  role: SubRecipe["role"],
+  cuisine: CuisineType,
+  usedDays: Map<string, number[]>,
+  dayIndex: number,
+  chosenInMeal: CatalogRecipe[],
+  usedRoles: Set<SubRecipe["role"]>
+): CatalogRecipe | undefined {
+  const alternatives = (ROLE_FALLBACKS[role] ?? [role]).filter((r) => r === role || !usedRoles.has(r));
+  for (const alt of alternatives) {
+    const recipe = pickFromPool(pool, alt, cuisine, usedDays, dayIndex, chosenInMeal);
+    if (recipe) return recipe;
+  }
+  if (role === "ana_yemek") return undefined;
+  for (const alt of alternatives) {
+    const recipe = pickSideAnyCuisine(pool, alt, cuisine, usedDays, dayIndex, chosenInMeal);
+    if (recipe) return recipe;
+  }
+  return undefined;
+}
+
+export interface BuildCatalogPlanOptions {
+  /** Kullanıcının "bir daha önerme" dediği tarifler — plana hiç girmez. */
+  excludedSlugs?: ReadonlySet<string>;
+}
+
+export function buildCatalogPlan(payload: UserPreferencesPayload, options: BuildCatalogPlanOptions = {}): DayPlan[] {
   const targetServings = payload.householdSize;
 
   let pool = filterByDietary(RECIPE_CATALOG, payload.dietary);
   pool = filterByEquipment(pool, payload.equipment);
   pool = filterByTime(pool, payload.maxPrepMinutes);
+  const excluded = options.excludedSlugs;
+  if (excluded && excluded.size > 0) pool = pool.filter((r) => !excluded.has(r.slug));
 
   const breakfastPool = pool.filter((r) => r.isBreakfast);
   const mainPool = pool.filter((r) => !r.isBreakfast);
@@ -331,7 +411,7 @@ export function buildCatalogPlan(payload: UserPreferencesPayload): DayPlan[] {
   if (payload.includedMeals.includes("kahvalti")) {
     for (const day of days) {
       const options = breakfastPool.filter((r) => passesRepeatGap(r.slug, day.dayIndex, usedDays, MIN_REPEAT_GAP_DAYS));
-      const recipe = pick(options.length > 0 ? options : leastRecentlyUsedCandidates(breakfastPool, day.dayIndex, usedDays));
+      const recipe = pick(preferWithPhoto(options.length > 0 ? options : leastRecentlyUsedCandidates(breakfastPool, day.dayIndex, usedDays)));
       if (!recipe) continue;
       recordUsedDay(recipe.slug, day.dayIndex, usedDays);
       const sub = toSubRecipe(recipe, targetServings);
@@ -354,11 +434,17 @@ export function buildCatalogPlan(payload: UserPreferencesPayload): DayPlan[] {
 
     const subRecipes: SubRecipe[] = [];
     const chosenInMeal: CatalogRecipe[] = [];
+    const usedRoles = new Set<SubRecipe["role"]>(roles);
     for (const role of roles) {
-      const recipe = pickFromPool(candidatePool, role, slot.cuisine, usedDays, slot.dayIndex, chosenInMeal);
+      // tek_cesit'te rol zaten havuz durumuna göre seçildi; yedek gerekmez.
+      const recipe =
+        complexity === "tek_cesit"
+          ? pickFromPool(candidatePool, role, slot.cuisine, usedDays, slot.dayIndex, chosenInMeal)
+          : pickForSlot(candidatePool, role, slot.cuisine, usedDays, slot.dayIndex, chosenInMeal, usedRoles);
       if (!recipe) continue;
       recordUsedDay(recipe.slug, slot.dayIndex, usedDays);
       chosenInMeal.push(recipe);
+      usedRoles.add(recipe.role);
       subRecipes.push(toSubRecipe(recipe, targetServings));
     }
 
@@ -405,4 +491,106 @@ export function buildCatalogPlan(payload: UserPreferencesPayload): DayPlan[] {
   }
 
   return days;
+}
+
+// ======================= YEMEK DEĞİŞTİRME (SWAP) =======================
+// Gerçek kullanıcı talebi: haftalık planda beğenmediği bir yemeği kullanıcı
+// değiştirebilmeli. Rastgele tek dokunuşlu değişim yerine 3 alternatif
+// sunulur; alternatifler planı oluşturan kuralların AYNISINA uyar (diyet,
+// alerji, ekipman, süre, tekrar aralığı, uyumsuz ikili, fotoğraf önceliği).
+
+/** Plandaki bir yemeğin katalog kaydı — `imageSlug` katalogda `slug` ile birebir aynı. */
+export function findCatalogRecipe(sub: { imageSlug?: string | undefined; name: string }): CatalogRecipe | undefined {
+  return RECIPE_CATALOG.find((r) => (sub.imageSlug ? r.slug === sub.imageSlug : r.name === sub.name));
+}
+
+export interface SuggestReplacementsRequest {
+  days: DayPlan[];
+  mealId: string;
+  subRecipeId: string;
+  payload: UserPreferencesPayload;
+  /** Önerilmeyecek tarifler ("bir daha önerme" listesi + bu oturumda zaten gösterilenler). */
+  excludedSlugs?: ReadonlySet<string>;
+  /** Seçilen mutfakta aday kalmazsa diğer mutfaklara da bakılsın mı. */
+  allowOtherCuisines?: boolean;
+  count?: number;
+}
+
+/**
+ * Bir yemeğin yerine geçebilecek tarifler. Aynı rol (çorba yerine çorba),
+ * aynı mutfak; kahvaltıda rol/mutfak yerine kahvaltı havuzu. Tekrar aralığını
+ * tutan ve fotoğraflı olanlar önce gelir, kendi içlerinde karışık sıralanır.
+ */
+export function suggestReplacements(req: SuggestReplacementsRequest): SubRecipe[] {
+  const count = req.count ?? 3;
+  const day = req.days.find((d) => d.meals.some((m) => m.mealId === req.mealId));
+  const meal = day?.meals.find((m) => m.mealId === req.mealId);
+  const sub = meal?.subRecipes.find((s) => s.subRecipeId === req.subRecipeId);
+  if (!day || !meal || !sub) return [];
+
+  const isBreakfast = meal.type === "kahvalti";
+  let pool = filterByDietary(RECIPE_CATALOG, req.payload.dietary);
+  pool = filterByEquipment(pool, req.payload.equipment);
+  pool = filterByTime(pool, req.payload.maxPrepMinutes);
+  pool = pool.filter((r) => Boolean(r.isBreakfast) === isBreakfast);
+  if (meal.type === "ogle") pool = filterEasyForLunch(pool);
+
+  const current = findCatalogRecipe(sub);
+  const others = meal.subRecipes
+    .filter((s) => s.subRecipeId !== sub.subRecipeId)
+    .map((s) => findCatalogRecipe(s))
+    .filter((r): r is CatalogRecipe => Boolean(r));
+  const blocked = new Set<string>([...(req.excludedSlugs ?? []), ...others.map((r) => r.slug)]);
+  if (current) blocked.add(current.slug);
+
+  // Bu yemek HARİÇ planın geri kalanındaki kullanımlar — tekrar aralığı için.
+  const usedDays = new Map<string, number[]>();
+  for (const d of req.days) {
+    for (const m of d.meals) {
+      for (const s of m.subRecipes) {
+        if (s.subRecipeId === sub.subRecipeId) continue;
+        const r = findCatalogRecipe(s);
+        if (r) recordUsedDay(r.slug, d.dayIndex, usedDays);
+      }
+    }
+  }
+
+  const role = sub.role;
+  const eligible = (r: CatalogRecipe) => !blocked.has(r.slug) && !isIncompatible(r, others) && (isBreakfast || r.role === role);
+  let candidates = pool.filter((r) => eligible(r) && (isBreakfast || matchesCuisineForRole(r, role, meal.cuisineTag)));
+  if (candidates.length === 0 && req.allowOtherCuisines && !isBreakfast) {
+    candidates = pool.filter((r) => eligible(r) && !(meal.cuisineTag === "balik_urunleri" && containsDairyExcludingButter(r)));
+  }
+
+  const gap = minRepeatGapForRole(role);
+  const ranked = candidates
+    .map((r) => ({
+      r,
+      key: (passesRepeatGap(r.slug, day.dayIndex, usedDays, gap) ? 0 : 2) + (DISH_IMAGE_SLUGS.has(r.imageSlug) ? 0 : 1) + Math.random(),
+    }))
+    .sort((a, b) => a.key - b.key)
+    .slice(0, count);
+
+  return ranked.map(({ r }) => toSubRecipe(r, sub.servings));
+}
+
+/**
+ * Planda tek bir yemeği değiştirir; öğün başlığını (ana yemek adı) ve süreyi
+ * yeniden hesaplar. Öğünün çeşit sayısı ve diğer yemekler aynen kalır.
+ */
+export function replaceSubRecipe<D extends DayPlan>(days: D[], mealId: string, subRecipeId: string, replacement: SubRecipe): D[] {
+  return days.map((day) => ({
+    ...day,
+    meals: day.meals.map((meal) => {
+      if (meal.mealId !== mealId) return meal;
+      const subRecipes = meal.subRecipes.map((s) => (s.subRecipeId === subRecipeId ? replacement : s));
+      const mainDish = subRecipes.find((s) => s.role === "ana_yemek") ?? subRecipes[0]!;
+      return {
+        ...meal,
+        title: mainDish.name,
+        totalPrepMinutes: Math.max(...subRecipes.map((s) => s.prepMinutes + s.cookMinutes)),
+        subRecipes,
+      };
+    }),
+  }));
 }

@@ -65,6 +65,9 @@ const SLUG_AISLE: Record<string, Aisle> = {
   seker: "temel_gida", bal: "temel_gida", tahin: "temel_gida", kuru_maya: "temel_gida", ceviz: "temel_gida",
   tavuk_suyu: "temel_gida", balik_suyu: "temel_gida",
 
+  // Tamamlayıcı Ortadoğu tarifleri (bkz. recipeCatalog.ts) için.
+  karnabahar: "sebze", sumak: "baharat",
+
   su: "icecek",
 };
 

@@ -19,6 +19,8 @@ export const colors = {
   nightDivider: "rgba(255,255,255,0.12)",
   glassFill: "rgba(255,255,255,0.14)",
   glassBorder: "rgba(255,255,255,0.2)",
+  /** Açık zeminli ekranlarda cam yüzeyin altına koyulan koyu ton — beyaz ikonlar okunsun. */
+  glassNight: "rgba(15,17,14,0.62)",
   /** Blur desteklenmeyen yerde (Android) camın yerine geçen opak dolgu. */
   glassFallback: "rgba(38,42,36,0.88)",
 

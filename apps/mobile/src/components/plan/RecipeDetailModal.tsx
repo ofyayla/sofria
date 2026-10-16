@@ -14,10 +14,13 @@ export function RecipeDetailModal({
   plan,
   openSubRecipeId,
   onClose,
+  onSwap,
 }: {
   plan: WeeklyPlanResponse;
   openSubRecipeId: string;
   onClose: () => void;
+  /** Verilirse tarif detayında "Değiştir" çıkar; argümanlar öğün ve yemek kimliği. */
+  onSwap?: (mealId: string, subRecipeId: string) => void;
 }) {
   const found = plan.days
     .flatMap((day) => day.meals)
@@ -53,6 +56,7 @@ export function RecipeDetailModal({
         imageSlug: found.sub.imageSlug,
       }}
       onClose={onClose}
+      {...(onSwap ? { onSwap: () => onSwap(found.mealId, found.sub.subRecipeId) } : {})}
     />
   );
 }

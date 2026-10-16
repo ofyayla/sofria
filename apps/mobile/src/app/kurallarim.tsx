@@ -3,6 +3,7 @@ import { Blend, CookingPot, Microwave, Wind } from "lucide-react-native";
 import { useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
 import { Chip, IngredientInput, Screen, ScreenHeader, SectionLabel, SelectionCard, Toggle, TwoToneHeadline } from "../components/ui";
+import { useDislikedRecipesStore } from "../stores/dislikedRecipes.store";
 import { useRulesProfileStore } from "../stores/rulesProfile.store";
 import { colors, radius, space, textStyle, type } from "../theme";
 
@@ -50,6 +51,9 @@ export default function KurallarimScreen() {
   const removeAvoidedIngredient = useRulesProfileStore((s) => s.removeAvoidedIngredient);
   const addAllergy = useRulesProfileStore((s) => s.addAllergy);
   const removeAllergy = useRulesProfileStore((s) => s.removeAllergy);
+
+  const disliked = useDislikedRecipesStore((s) => s.items);
+  const removeDisliked = useDislikedRecipesStore((s) => s.remove);
 
   const [avoidedDraft, setAvoidedDraft] = useState("");
   const [allergyDraft, setAllergyDraft] = useState("");
@@ -149,6 +153,22 @@ export default function KurallarimScreen() {
             <Chip key={item} label={item} variant="danger" onPress={() => removeAllergy(item)} />
           ))}
         </View>
+      </View>
+
+      <View style={styles.section}>
+        <SectionLabel>ÖNERİLMEYEN TARİFLER</SectionLabel>
+        <Text style={styles.sectionHint}>
+          {disliked.length > 0
+            ? "Bu tarifler planlarda ve değiştirme önerilerinde çıkmaz. Geri almak için dokun."
+            : "Planda bir yemeği değiştirirken \"bir daha önerilmesin\" dediklerin burada listelenir."}
+        </Text>
+        {disliked.length > 0 && (
+          <View style={styles.chipRow}>
+            {disliked.map((item) => (
+              <Chip key={item.slug} label={item.name} variant="removable" onPress={() => removeDisliked(item.slug)} />
+            ))}
+          </View>
+        )}
       </View>
     </Screen>
   );

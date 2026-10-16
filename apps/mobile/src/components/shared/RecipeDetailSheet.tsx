@@ -1,7 +1,7 @@
 import { UNIT_LABELS, type CuisineType, type Ingredient, type InstructionStep, type RatedRecipeSnapshot } from "@sofria/shared";
 import { LinearGradient } from "expo-linear-gradient";
 import * as Haptics from "expo-haptics";
-import { Bookmark, ChevronDown, Clock, Flame, Share2, Users, UtensilsCrossed, type LucideIcon } from "lucide-react-native";
+import { Bookmark, ChevronDown, Clock, Flame, RefreshCw, Share2, Users, UtensilsCrossed, type LucideIcon } from "lucide-react-native";
 import { useEffect, useState } from "react";
 import { Alert, Image, Modal, Platform, ScrollView, Share, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -38,6 +38,8 @@ export interface RecipeDetailSheetProps {
   /** Henüz puanlanmamışsa RatingForm bunu kayda gömer — bkz. rating.ts. */
   recipeSnapshot?: RatedRecipeSnapshot;
   onClose: () => void;
+  /** Plan akışında: bu yemeğin yerine başka bir yemek seç (bkz. usePlanSwap). */
+  onSwap?: () => void;
 }
 
 type Tab = "ingredients" | "steps";
@@ -207,6 +209,9 @@ export function RecipeDetailSheet(props: RecipeDetailSheetProps) {
           <View style={styles.floatingRow} pointerEvents="box-none">
             <IconCircleButton icon={ChevronDown} accessibilityLabel="Tarifi kapat" variant="white" onPress={onClose} />
             <View style={styles.floatingActions}>
+              {props.onSwap && (
+                <IconCircleButton icon={RefreshCw} accessibilityLabel="Bu yemeği değiştir" variant="glass" size="md" onPress={props.onSwap} />
+              )}
               {(props.recipeSnapshot || inBook) && (
                 <IconCircleButton
                   icon={Bookmark}

@@ -9,8 +9,6 @@ export interface TwoToneHeadlineProps {
   strong: string;
   /** Sağ altta küçük açıklama ("45 dk\n4 kişilik"). */
   caption?: string;
-  /** "stack": iki satır sola yaslı. "split": ilk satır sağa, ikincisi sola (referans 3. ekran). */
-  layout?: "stack" | "split";
   /** Soluk satırın ikinci satırdan sonra gelmesi ("22 ürün / kaldı"). */
   mutedLast?: boolean;
   size?: "display" | "title";
@@ -25,7 +23,6 @@ export function TwoToneHeadline({
   muted,
   strong,
   caption,
-  layout = "stack",
   mutedLast = false,
   size = "display",
 }: TwoToneHeadlineProps) {
@@ -36,18 +33,6 @@ export function TwoToneHeadline({
   const base = textStyle(t);
 
   const captionNode = caption ? <Text style={[styles.caption, { color: captionColor }]}>{caption}</Text> : null;
-
-  if (layout === "split") {
-    return (
-      <View accessibilityRole="header" accessible accessibilityLabel={`${muted} ${strong}`}>
-        <Text style={[base, { color: strongColor, textAlign: "right" }]}>{muted}</Text>
-        <View style={styles.bottomRow}>
-          <Text style={[base, { color: mutedColor }]}>{strong}</Text>
-          {captionNode}
-        </View>
-      </View>
-    );
-  }
 
   const first = mutedLast ? strong : muted;
   const second = mutedLast ? muted : strong;
