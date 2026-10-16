@@ -13,12 +13,12 @@
   },
   "dependencies": {
     "@expo-google-fonts/figtree": "^0.4.1",
-    "@expo-google-fonts/inter": "^0.4.2",
     "@expo/metro-runtime": "~57.0.17",
     "@react-native-async-storage/async-storage": "^2.2.0",
     "@sofria/shared": "workspace:*",
     "@tanstack/react-query": "^5.101.4",
     "expo": "~57.0.29",
+    "expo-blur": "~57.0.3",
     "expo-constants": "~57.0.22",
     "expo-font": "~57.0.4",
     "expo-haptics": "~57.0.3",

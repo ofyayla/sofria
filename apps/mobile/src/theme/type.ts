@@ -1,30 +1,48 @@
-// pisir-ai-design-system.md §2 — birebir port.
-import { colors } from "./colors";
-
+// Sofria tasarım dili v2 — tek aile: Figtree. Başlıklar büyük ve İNCE (400),
+// vurgu ağırlıkla değil iki tonlu renkle yapılır ("Bu akşam" soluk +
+// "Karnıyarık" tam renk).
 export const fonts = {
-  display: "Figtree_700Bold",
-  displayXBold: "Figtree_800ExtraBold",
-  body: "Inter_400Regular",
-  bodyMedium: "Inter_500Medium",
-  bodySemi: "Inter_600SemiBold",
+  regular: "Figtree_400Regular",
+  medium: "Figtree_500Medium",
+  semibold: "Figtree_600SemiBold",
+  bold: "Figtree_700Bold",
 } as const;
 
 export const type = {
-  screenTitle: { font: fonts.display, size: 34, lineHeight: 40, letterSpacing: -0.8, color: colors.ink },
-  question: { font: fonts.display, size: 26, lineHeight: 32, letterSpacing: -0.4, color: colors.ink },
-  hero: { font: fonts.displayXBold, size: 64, lineHeight: 68, letterSpacing: -2.0, color: colors.brand },
-  cardTitle: { font: fonts.bodySemi, size: 17, lineHeight: 22, color: colors.ink },
-  cardSub: { font: fonts.body, size: 14, lineHeight: 19, color: colors.inkMuted },
-  body: { font: fonts.body, size: 16, lineHeight: 23, color: colors.inkSecondary },
-  helper: { font: fonts.body, size: 15, lineHeight: 21, color: colors.inkSecondary },
-  label: { font: fonts.bodyMedium, size: 13, lineHeight: 17, color: colors.inkSecondary },
-  button: { font: fonts.bodySemi, size: 18, lineHeight: 22, color: colors.onCta },
-  chip: { font: fonts.bodyMedium, size: 16, lineHeight: 20 },
+  display: { font: fonts.regular, size: 44, lineHeight: 46, letterSpacing: -1.5 },
+  title: { font: fonts.regular, size: 38, lineHeight: 42, letterSpacing: -1.2 },
+  heading: { font: fonts.medium, size: 26, lineHeight: 30, letterSpacing: -0.5 },
+  cardTitle: { font: fonts.semibold, size: 17, lineHeight: 22, letterSpacing: 0 },
+  body: { font: fonts.regular, size: 16, lineHeight: 23, letterSpacing: 0 },
+  bodyMedium: { font: fonts.medium, size: 16, lineHeight: 22, letterSpacing: 0 },
+  helper: { font: fonts.regular, size: 14, lineHeight: 20, letterSpacing: 0 },
+  caption: { font: fonts.regular, size: 13, lineHeight: 18, letterSpacing: 0 },
+  /** Büyük harfli üst etiket — metin kaynağında zaten büyük yazılır (bkz. aşağı). */
+  eyebrow: { font: fonts.semibold, size: 12, lineHeight: 16, letterSpacing: 1.2 },
+  button: { font: fonts.semibold, size: 17, lineHeight: 22, letterSpacing: 0 },
+  chip: { font: fonts.medium, size: 15, lineHeight: 20, letterSpacing: 0 },
+  hero: { font: fonts.regular, size: 56, lineHeight: 60, letterSpacing: -2 },
 } as const;
 
+export type TypeToken = (typeof type)[keyof typeof type];
+
+/** Bir type token'ını RN Text stiline çevirir. */
+export function textStyle(token: TypeToken) {
+  return {
+    fontFamily: token.font,
+    fontSize: token.size,
+    lineHeight: token.lineHeight,
+    letterSpacing: token.letterSpacing,
+  };
+}
+
 /**
- * SDD/design-system §2 kuralları: rakamlar (bütçe, porsiyon, süre,
- * matchRate) tabular-nums ile yazılır; Türkçe büyük harfe kod içinde
- * ASLA `toUpperCase()` ile çevrilmez (İ/ı hatası üretir).
+ * Rakamlar (porsiyon, süre, miktar) tabular-nums ile yazılır. Türkçe büyük
+ * harfe kod içinde ASLA `toUpperCase()` ile çevrilmez (İ/ı hatası) —
+ * gerekiyorsa `toTurkishUpperCase` kullanılır.
  */
 export const tabularNums: { fontVariant: ("tabular-nums" | "lining-nums")[] } = { fontVariant: ["tabular-nums"] };
+
+export function toTurkishUpperCase(text: string): string {
+  return text.replace(/i/g, "İ").toUpperCase();
+}

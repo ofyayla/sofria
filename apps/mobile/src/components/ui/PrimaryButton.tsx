@@ -1,111 +1,91 @@
-import { LinearGradient } from "expo-linear-gradient";
+import * as Haptics from "expo-haptics";
+import type { LucideIcon } from "lucide-react-native";
 import { ArrowRight } from "lucide-react-native";
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Pressable, StyleSheet, Text, View, type GestureResponderEvent } from "react-native";
 import Animated, { useAnimatedStyle, useSharedValue, withTiming } from "react-native-reanimated";
-import { colors, motion, radius, shadow, type as textType } from "../../theme";
+import { colors, motion, radius, shadow, size, textStyle, type, type Tone } from "../../theme";
 
 export interface PrimaryButtonProps {
   label: string;
-  onPress: () => void;
+  onPress: (e: GestureResponderEvent) => void;
   disabled?: boolean;
   loading?: boolean;
+  /** Etiketten önce gösterilen ikon (örn. Play). */
+  icon?: LucideIcon;
+  /** Etiketten sonra sağa ok — "ileri" anlamı taşıyan butonlarda. */
   showArrow?: boolean;
+  /** Pasif hâlin zemini ekran tonuna göre seçilir. */
+  tone?: Tone;
   accessibilityLabel?: string;
 }
 
-const AnimatedLinearGradient = Animated.createAnimatedComponent(LinearGradient);
-
 /**
- * design-system.md §5.1 — Hap formu, sola hizalı ok + ortalanmış etiket,
- * yatay pastel gradyan. Disabled buton BİLEREK soluk yeşil değil,
- * gradyansız surfaceMuted — soluk yeşil kullanıcıya basılabilir gibi gelir.
+ * Ekrandaki TEK lime CTA. Pasif hâl lime'ın soluk hâli DEĞİL — nötr zemin
+ * üstünde, etiket neyin eksik olduğunu söyler ("En az 1 mutfak seç").
  */
-export function PrimaryButton({ label, onPress, disabled, loading, showArrow = true, accessibilityLabel }: PrimaryButtonProps) {
+export function PrimaryButton({
+  label,
+  onPress,
+  disabled,
+  loading,
+  icon: Icon,
+  showArrow = false,
+  tone = "dark",
+  accessibilityLabel,
+}: PrimaryButtonProps) {
   const pressed = useSharedValue(0);
   const isDisabled = disabled || loading;
-
-  const animatedStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: 1 - pressed.value * 0.03 }],
-    shadowOpacity: shadow.cta.shadowOpacity * (1 - pressed.value * 0.5),
-  }));
-
-  function handlePressIn() {
-    if (isDisabled) return;
-    pressed.value = withTiming(1, { duration: motion.pressScaleMs });
-  }
-  function handlePressOut() {
-    pressed.value = withTiming(0, { duration: motion.pressScaleMs });
-  }
+  const animatedStyle = useAnimatedStyle(() => ({ transform: [{ scale: 1 - pressed.value * 0.03 }] }));
 
   if (isDisabled) {
+    const fg = tone === "dark" ? colors.onNightSecondary : colors.inkSecondary;
     return (
       <View
-        style={[styles.button, styles.disabled]}
+        style={[styles.button, { backgroundColor: tone === "dark" ? colors.nightTrack : colors.surfaceMuted }]}
         accessibilityRole="button"
-        accessibilityState={{ disabled: true }}
+        accessibilityState={{ disabled: true, busy: loading }}
         accessibilityLabel={accessibilityLabel ?? label}
       >
-        <Text style={styles.disabledLabel}>{label}</Text>
+        {loading && <ActivityIndicator color={fg} />}
+        <Text style={[styles.label, { color: fg, fontFamily: type.body.font }]}>{label}</Text>
       </View>
     );
   }
 
   return (
     <Pressable
-      onPress={onPress}
-      onPressIn={handlePressIn}
-      onPressOut={handlePressOut}
+      onPress={(e) => {
+        void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+        onPress(e);
+      }}
+      onPressIn={() => {
+        pressed.value = withTiming(1, { duration: motion.pressScaleMs });
+      }}
+      onPressOut={() => {
+        pressed.value = withTiming(0, { duration: motion.pressScaleMs });
+      }}
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel ?? label}
-      hitSlop={8}
     >
-      <AnimatedLinearGradient
-        colors={[colors.ctaFrom, colors.ctaTo]}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 0 }}
-        style={[styles.button, shadow.cta, animatedStyle]}
-      >
-        {loading ? (
-          <ActivityIndicator color={colors.onCta} />
-        ) : (
-          <View style={styles.content}>
-            {showArrow && <ArrowRight size={20} color={colors.onCta} style={styles.arrow} />}
-            <Text style={styles.label}>{label}</Text>
-          </View>
-        )}
-      </AnimatedLinearGradient>
+      <Animated.View style={[styles.button, styles.enabled, shadow.floating, animatedStyle]}>
+        {Icon && <Icon size={18} color={colors.onAccent} fill={colors.onAccent} />}
+        <Text style={styles.label}>{label}</Text>
+        {showArrow && <ArrowRight size={20} color={colors.onAccent} />}
+      </Animated.View>
     </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
   button: {
-    height: 60,
-    borderRadius: radius.button,
-    paddingHorizontal: 32,
+    height: size.cta,
+    borderRadius: radius.pill,
+    paddingHorizontal: 28,
+    flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
+    gap: 10,
   },
-  disabled: {
-    height: 60,
-    borderRadius: radius.button,
-    paddingHorizontal: 32,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: colors.surfaceMuted,
-  },
-  content: { flexDirection: "row", alignItems: "center", justifyContent: "center" },
-  arrow: { position: "absolute", left: 0 },
-  label: {
-    fontFamily: textType.button.font,
-    fontSize: textType.button.size,
-    lineHeight: textType.button.lineHeight,
-    color: colors.onCta,
-  },
-  disabledLabel: {
-    fontFamily: textType.button.font,
-    fontSize: textType.button.size,
-    lineHeight: textType.button.lineHeight,
-    color: colors.inkMuted,
-  },
+  enabled: { backgroundColor: colors.accent, shadowOpacity: 0.18 },
+  label: { ...textStyle(type.button), color: colors.onAccent },
 });

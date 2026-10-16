@@ -1,17 +1,16 @@
 import { Pressable, StyleSheet, Text } from "react-native";
-import { colors, radius, type as textType } from "../../theme";
+import { colors, radius, size, textStyle, type, type Tone } from "../../theme";
 
 export interface SecondaryButtonProps {
   label: string;
   onPress: () => void;
   disabled?: boolean;
+  tone?: Tone;
 }
 
-/**
- * design-system.md §5.2 — yalnızca "Atla", "Vazgeç" gibi ikincil
- * aksiyonlarda. Ekranda birincil butonla birlikte en fazla bir tane bulunur.
- */
-export function SecondaryButton({ label, onPress, disabled }: SecondaryButtonProps) {
+/** İkincil aksiyon ("Vazgeç", "Atla") — çerçeveli hap. Ekranda birincil butonla en fazla bir tane. */
+export function SecondaryButton({ label, onPress, disabled, tone = "light" }: SecondaryButtonProps) {
+  const fg = tone === "dark" ? colors.onNight : colors.ink;
   return (
     <Pressable
       onPress={onPress}
@@ -19,32 +18,28 @@ export function SecondaryButton({ label, onPress, disabled }: SecondaryButtonPro
       accessibilityRole="button"
       accessibilityLabel={label}
       accessibilityState={{ disabled }}
-      hitSlop={8}
-      style={({ pressed }) => [styles.button, disabled && styles.disabled, pressed && styles.pressed]}
+      style={({ pressed }) => [
+        styles.button,
+        { borderColor: tone === "dark" ? colors.glassBorder : colors.divider },
+        disabled && styles.disabled,
+        pressed && styles.pressed,
+      ]}
     >
-      <Text style={[styles.label, disabled && styles.disabledLabel]}>{label}</Text>
+      <Text style={[styles.label, { color: fg }]}>{label}</Text>
     </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
   button: {
-    height: 60,
-    borderRadius: radius.button,
-    paddingHorizontal: 32,
+    height: size.cta,
+    borderRadius: radius.pill,
+    paddingHorizontal: 28,
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 1.5,
-    borderColor: colors.brand,
-    backgroundColor: "transparent",
   },
   pressed: { opacity: 0.7 },
-  disabled: { borderColor: colors.divider },
-  label: {
-    fontFamily: textType.button.font,
-    fontSize: textType.button.size,
-    lineHeight: textType.button.lineHeight,
-    color: colors.brand,
-  },
-  disabledLabel: { color: colors.inkMuted },
+  disabled: { opacity: 0.45 },
+  label: textStyle(type.button),
 });

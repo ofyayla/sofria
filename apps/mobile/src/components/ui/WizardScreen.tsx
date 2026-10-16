@@ -1,142 +1,87 @@
 import { LinearGradient } from "expo-linear-gradient";
-import { ChevronLeft } from "lucide-react-native";
-import type { ReactNode } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
-import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
-import { colors, gutter, space, type as textType } from "../../theme";
-import { BrandIcon } from "./BrandIcon";
+import { useFocusEffect } from "expo-router";
+import { setStatusBarStyle } from "expo-status-bar";
+import { ChevronLeft, X } from "lucide-react-native";
+import { useCallback, type ReactNode } from "react";
+import { ScrollView, StyleSheet, Text, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { colors, gutter, size, space, tabularNums, textStyle, type } from "../../theme";
+import { IconCircleButton } from "./IconCircleButton";
 import { ProgressSteps } from "./ProgressSteps";
+import { TwoToneHeadline } from "./TwoToneHeadline";
 
-const CTA_HEIGHT = 60;
-const SCRIM_HEIGHT = 32;
+const SCRIM_HEIGHT = 48;
 
 export interface WizardScreenProps {
-  title: string;
-  label?: string;
   stepIndex: number; // 0-indexed
   totalSteps: number;
-  onBack?: () => void;
-  /** Verilmezse sabit CTA alanı/scrim hiç render edilmez (örn. Özet adımı kendi butonunu içerikte gösterir). */
-  cta?: ReactNode;
+  headline: { muted: string; strong: string; caption?: string };
+  onBack: () => void;
+  onClose: () => void;
+  /** Sabit alt CTA — içerik hiçbir zaman butonun altında kesilmez. */
+  cta: ReactNode;
   children: ReactNode;
 }
 
 /**
- * design-system.md §4 "Ekran iskeleti" — TÜM sihirbaz ekranları bu tek
- * bileşeni kullanır; her ekranın kendi SafeAreaView + ScrollView kurgusunu
- * yazması yasaktır. CTA sabit, üstünde 32pt scrim, içerik hiçbir zaman
- * butonun altında kesilmez.
+ * Tüm sihirbaz adımlarının tek iskeleti (koyu ton). Üstte [‹] Adım x/y [✕],
+ * ilerleme çubuğu, iki tonlu başlık; altta sabit CTA ve karartma.
  */
-export function WizardScreen({ title, label, stepIndex, totalSteps, onBack, cta, children }: WizardScreenProps) {
+export function WizardScreen({ stepIndex, totalSteps, headline, onBack, onClose, cta, children }: WizardScreenProps) {
   const insets = useSafeAreaInsets();
   const ctaBottom = insets.bottom + space.lg;
-  const ctaBlockHeight = cta ? CTA_HEIGHT + ctaBottom : 0;
+  const ctaBlockHeight = size.cta + ctaBottom;
+
+  useFocusEffect(useCallback(() => setStatusBarStyle("light"), []));
 
   return (
-    <LinearGradient colors={[colors.bgTop, colors.bgBottom]} style={styles.gradient}>
-      <SafeAreaView style={styles.safeArea} edges={["top"]}>
-        <View style={styles.nav}>
-          {onBack ? (
-            <Pressable onPress={onBack} accessibilityRole="button" accessibilityLabel="Geri" hitSlop={8} style={styles.backButton}>
-              <ChevronLeft size={22} color={colors.ink} />
-              <Text style={styles.backLabel}>Geri</Text>
-            </Pressable>
-          ) : (
-            <View style={styles.backButton} />
-          )}
-          <Text style={[styles.stepCounter]} accessibilityElementsHidden>
-            {stepIndex + 1} / {totalSteps}
-          </Text>
-        </View>
-
-        <View style={styles.progressWrap}>
+    <View style={styles.root}>
+      {/* SafeAreaView yerine hook: tam ekran modal İLK açıldığında SafeAreaView
+          bir kare boyunca 0 inset okuyup başlığı durum çubuğunun altına itiyordu. */}
+      <View style={[styles.safeArea, { paddingTop: insets.top }]}>
+        <View style={styles.top}>
+          <View style={styles.nav}>
+            <IconCircleButton icon={ChevronLeft} accessibilityLabel="Geri" variant="white" onPress={onBack} />
+            <Text style={[styles.counter, tabularNums]}>
+              Adım {stepIndex + 1} / {totalSteps}
+            </Text>
+            <IconCircleButton icon={X} accessibilityLabel="Sihirbazı kapat" variant="glass" onPress={onClose} />
+          </View>
           <ProgressSteps total={totalSteps} current={stepIndex} />
         </View>
 
-        {label && <Text style={styles.label}>{label}</Text>}
-        <View style={styles.titleRow}>
-          <BrandIcon size={20} />
-          <Text style={styles.title}>{title}</Text>
-        </View>
-
         <ScrollView
-          // Gerçek kullanıcı talebi: bu ScrollView TÜM adımlar arasında AYNI
-          // örnek olarak kalıyordu — bir adımda aşağı kaydırıp "İleri"ye
-          // basınca yeni adım da önceki kaydırma konumundan (bazen en alttan)
-          // başlıyordu. `key={stepIndex}` her adımda ScrollView'i yeniden
-          // kurar, kaydırma konumu adım değişince otomatik sıfırlanır.
+          // Her adımda ScrollView yeniden kurulur — yeni adım önceki adımın
+          // kaydırma konumundan başlamasın (gerçek kullanıcı testi).
           key={stepIndex}
           style={styles.scroll}
-          contentContainerStyle={{ paddingBottom: ctaBlockHeight + space.xxl }}
+          contentContainerStyle={{ paddingBottom: ctaBlockHeight + space.xxl, gap: space.xl }}
           showsVerticalScrollIndicator={false}
-          // bkz. Screen.tsx — aynı düzeltme: klavye açıkken bir butona ilk
-          // dokunuş yalnızca klavyeyi kapatmasın, buton da hemen çalışsın.
           keyboardShouldPersistTaps="handled"
         >
+          <TwoToneHeadline tone="dark" size="title" muted={headline.muted} strong={headline.strong} {...(headline.caption ? { caption: headline.caption } : {})} />
           {children}
         </ScrollView>
 
-        {cta && (
-          <>
-            <LinearGradient
-              colors={[colors.bgBottom, `${colors.bgBottom}00`]}
-              style={[styles.scrim, { bottom: ctaBlockHeight }]}
-              pointerEvents="none"
-            />
-            <View style={[styles.ctaContainer, { bottom: ctaBottom }]}>{cta}</View>
-          </>
-        )}
-      </SafeAreaView>
-    </LinearGradient>
+        <LinearGradient
+          colors={[colors.scrimClear, colors.night]}
+          locations={[0, 0.45]}
+          style={[styles.scrim, { height: ctaBlockHeight + SCRIM_HEIGHT }]}
+          pointerEvents="none"
+        />
+        <View style={[styles.ctaContainer, { bottom: ctaBottom }]}>{cta}</View>
+      </View>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  gradient: { flex: 1 },
+  root: { flex: 1, backgroundColor: colors.night },
   safeArea: { flex: 1 },
-  nav: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    height: 44,
-    paddingHorizontal: gutter,
-  },
-  backButton: { flexDirection: "row", alignItems: "center", minWidth: 44, minHeight: 44 },
-  backLabel: {
-    fontFamily: textType.body.font,
-    fontSize: textType.body.size,
-    color: colors.ink,
-  },
-  stepCounter: {
-    fontFamily: textType.label.font,
-    fontSize: textType.label.size,
-    color: colors.inkSecondary,
-    fontVariant: ["tabular-nums"],
-  },
-  progressWrap: { paddingHorizontal: gutter, marginBottom: space.lg },
-  label: {
-    paddingHorizontal: gutter,
-    fontFamily: textType.label.font,
-    fontSize: textType.label.size,
-    lineHeight: textType.label.lineHeight,
-    color: colors.inkSecondary,
-    marginBottom: space.xs,
-  },
-  titleRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: space.sm,
-    paddingHorizontal: gutter,
-    marginBottom: space.lg,
-  },
-  title: {
-    fontFamily: textType.screenTitle.font,
-    fontSize: textType.screenTitle.size,
-    lineHeight: textType.screenTitle.lineHeight,
-    letterSpacing: textType.screenTitle.letterSpacing,
-    color: textType.screenTitle.color,
-  },
+  top: { paddingHorizontal: gutter, paddingTop: space.sm, gap: space.lg, marginBottom: space.lg },
+  nav: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  counter: { ...textStyle(type.helper), fontSize: 15, color: colors.onNightSecondary },
   scroll: { flex: 1, paddingHorizontal: gutter },
-  scrim: { position: "absolute", left: 0, right: 0, height: SCRIM_HEIGHT },
+  scrim: { position: "absolute", left: 0, right: 0, bottom: 0 },
   ctaContainer: { position: "absolute", left: gutter, right: gutter },
 });

@@ -1,112 +1,204 @@
 import type { CuisineType, DietaryConstraints, EquipmentConstraints, MealComplexity } from "@sofria/shared";
-import { StyleSheet, Text, View } from "react-native";
-import { GeneratingIndicator, PrimaryButton } from "../ui";
-import { colors, radius, space, type as textType } from "../../theme";
+import { useState } from "react";
+import { Pressable, StyleSheet, Text, View } from "react-native";
+import { COMPLEXITY_LABELS, CUISINE_INFO, MEAL_TYPE_LABELS } from "../../lib/planDisplay";
+import type { MealType } from "../../stores/preferences.store";
+import { colors, radius, space, textStyle, type } from "../../theme";
+import { Chip, GeneratingIndicator, IngredientInput, InfoBanner, SectionLabel } from "../ui";
 
 export interface SummaryStepProps {
   householdAdults: number;
   householdChildren: number;
   childAges: (number | undefined)[];
-  includedMeals: string[];
+  includedMeals: MealType[];
   cuisinePreferences: CuisineType[];
+  mealComplexity: { lunch: MealComplexity | undefined; dinner: MealComplexity | undefined };
   effectiveDietary: DietaryConstraints;
   effectiveEquipment: EquipmentConstraints;
-  mealComplexity: { lunch: MealComplexity | undefined; dinner: MealComplexity | undefined };
+  onDietaryOverride: (partial: Partial<DietaryConstraints>) => void;
+  onEquipmentOverride: (partial: Partial<EquipmentConstraints>) => void;
+  onEditStep: (step: number) => void;
   isPending: boolean;
   errorMessage?: string | undefined;
-  onGenerate: () => void;
 }
 
-const CUISINE_LABELS: Record<CuisineType, string> = {
-  kirmizi_et: "Kırmızı Et",
-  beyaz_et: "Beyaz Et (Tavuk ve Hindi)",
-  balik_urunleri: "Balık Ürünleri",
-  sebze_yemekleri: "Sebze Yemekleri",
-  ortadogu_mutfagi: "Ortadoğu Mutfağı",
-  italyan_mutfagi: "İtalyan Mutfağı",
-};
+const DIET_FLAGS: { key: keyof Pick<DietaryConstraints, "glutenFree" | "lactoseFree" | "vegetarian" | "vegan">; label: string }[] = [
+  { key: "glutenFree", label: "Glutensiz" },
+  { key: "lactoseFree", label: "Laktozsuz" },
+  { key: "vegetarian", label: "Vejetaryen" },
+  { key: "vegan", label: "Vegan" },
+];
 
-const MEAL_LABELS: Record<string, string> = { kahvalti: "Kahvaltı", ogle: "Öğle", aksam: "Akşam" };
-const COMPLEXITY_LABELS: Record<MealComplexity, string> = { tek_cesit: "Tek çeşit", iki_cesit: "İki çeşit", tam_menu: "Tam menü" };
+const EQUIPMENT_FLAGS: { key: keyof Pick<EquipmentConstraints, "hasOven" | "hasAirFryer" | "hasPressureCooker" | "hasBlender">; label: string }[] = [
+  { key: "hasOven", label: "Fırın" },
+  { key: "hasAirFryer", label: "Air fryer" },
+  { key: "hasPressureCooker", label: "Düdüklü" },
+  { key: "hasBlender", label: "Blender" },
+];
 
-function SummaryRow({ label, value }: { label: string; value: string }) {
+function SummaryRow({ label, value, onEdit, last }: { label: string; value: string; onEdit: () => void; last?: boolean }) {
   return (
-    <View style={styles.row}>
-      <Text style={styles.rowLabel}>{label}</Text>
-      <Text style={styles.rowValue}>{value}</Text>
+    <View style={[styles.row, !last && styles.rowDivider]}>
+      <View style={styles.flex}>
+        <Text style={styles.rowLabel}>{label}</Text>
+        <Text style={styles.rowValue}>{value}</Text>
+      </View>
+      <Pressable onPress={onEdit} accessibilityRole="button" accessibilityLabel={`${label} düzenle`} hitSlop={8} style={styles.editButton}>
+        <Text style={styles.editText}>Düzenle</Text>
+      </Pressable>
     </View>
   );
 }
 
+/**
+ * Adım 3 — "Son kontrol". Eski diyet ve ekipman adımları buraya katlandı:
+ * değerler "Kurallarım"dan gelir; buradaki değişiklik YALNIZCA bu plan
+ * için geçerlidir (kalıcı profile yazılmaz — bkz. mergeConstraints).
+ * Alerjiler güvenlik açısından kritik olduğu için burada her zaman görünür.
+ */
 export function SummaryStep(props: SummaryStepProps) {
-  const constraintTags = [
-    props.effectiveDietary.glutenFree && "Glutensiz",
-    props.effectiveDietary.vegetarian && "Vejetaryen",
-    props.effectiveDietary.vegan && "Vegan",
-    props.effectiveEquipment.stovetopOnly && "Sadece ocak",
-    ...props.effectiveDietary.avoidedIngredients.map((i) => `${i} hariç`),
-  ].filter(Boolean) as string[];
+  const [avoidedDraft, setAvoidedDraft] = useState("");
+  const [allergyDraft, setAllergyDraft] = useState("");
+  const { effectiveDietary: diet, effectiveEquipment: eq } = props;
 
-  const showLunch = props.includedMeals.includes("ogle");
-  const showDinner = props.includedMeals.includes("aksam");
-  const complexityRow =
-    showLunch && showDinner
-      ? {
-          label: "Öğle / akşam",
-          value: `${props.mealComplexity.lunch ? COMPLEXITY_LABELS[props.mealComplexity.lunch] : ""} / ${props.mealComplexity.dinner ? COMPLEXITY_LABELS[props.mealComplexity.dinner] : ""}`,
-        }
-      : showLunch
-        ? { label: "Öğle yemeği", value: props.mealComplexity.lunch ? COMPLEXITY_LABELS[props.mealComplexity.lunch] : "" }
-        : showDinner
-          ? { label: "Akşam yemeği", value: props.mealComplexity.dinner ? COMPLEXITY_LABELS[props.mealComplexity.dinner] : "" }
-          : null;
+  const ages = props.childAges.filter((a): a is number => a != null);
+  const household =
+    `${props.householdAdults} yetişkin` +
+    (props.householdChildren > 0 ? `, ${props.householdChildren} çocuk${ages.length ? ` (${ages.join(", ")} yaş)` : ""}` : "");
+
+  const meals = props.includedMeals
+    .map((m) => {
+      const c = m === "ogle" ? props.mealComplexity.lunch : m === "aksam" ? props.mealComplexity.dinner : undefined;
+      return c ? `${MEAL_TYPE_LABELS[m]} (${COMPLEXITY_LABELS[c].toLocaleLowerCase("tr")})` : MEAL_TYPE_LABELS[m];
+    })
+    .join(", ");
 
   return (
-    <View style={{ gap: space.xl }}>
+    <View style={styles.wrap}>
       <View style={styles.card}>
+        <SummaryRow label="Hane" value={household} onEdit={() => props.onEditStep(0)} />
+        <SummaryRow label="Öğünler" value={meals} onEdit={() => props.onEditStep(1)} />
         <SummaryRow
-          label="Hane"
-          value={`${props.householdAdults} yetişkin${props.householdChildren > 0 ? `, ${props.householdChildren} çocuk` : ""}`}
+          label="Mutfaklar"
+          value={props.cuisinePreferences.map((c) => CUISINE_INFO[c].label).join(", ")}
+          onEdit={() => props.onEditStep(1)}
+          last
         />
-        {props.householdChildren > 0 && (
-          <SummaryRow label="Çocuk yaşları" value={props.childAges.filter((a): a is number => a != null).join(", ")} />
-        )}
-        <SummaryRow label="Öğünler" value={props.includedMeals.map((m) => MEAL_LABELS[m] ?? m).join(", ")} />
-        <SummaryRow label="Mutfaklar" value={props.cuisinePreferences.map((c) => CUISINE_LABELS[c]).join(", ")} />
-        {complexityRow && <SummaryRow label={complexityRow.label} value={complexityRow.value} />}
       </View>
 
-      {constraintTags.length > 0 && (
-        <View style={styles.tagRow}>
-          {constraintTags.map((tag) => (
-            <View key={tag} style={styles.tag}>
-              <Text style={styles.tagText}>{tag}</Text>
-            </View>
+      <View>
+        <SectionLabel tone="dark">BU PLAN İÇİN KURALLAR</SectionLabel>
+        <Text style={styles.hint}>"Kurallarım"dan geldi. Buradaki değişiklik yalnızca bu planı etkiler.</Text>
+
+        <Text style={styles.groupLabel}>Diyet</Text>
+        <View style={styles.chips}>
+          {DIET_FLAGS.map(({ key, label }) => (
+            <Chip
+              key={key}
+              tone="dark"
+              label={label}
+              variant={diet[key] ? "on" : "off"}
+              onPress={() =>
+                props.onDietaryOverride({
+                  [key]: !diet[key],
+                  ...(key === "vegan" && !diet.vegan ? { vegetarian: true } : {}),
+                  ...(key === "vegetarian" && diet.vegetarian ? { vegan: false } : {}),
+                })
+              }
+            />
           ))}
         </View>
-      )}
 
-      {props.errorMessage && (
-        <View style={styles.errorBanner}>
-          <Text style={styles.errorText}>{props.errorMessage}</Text>
+        <Text style={styles.groupLabel}>Ekipman</Text>
+        <View style={styles.chips}>
+          {EQUIPMENT_FLAGS.map(({ key, label }) => (
+            <Chip
+              key={key}
+              tone="dark"
+              label={label}
+              variant={key === "hasOven" && eq.stovetopOnly ? "disabled" : eq[key] ? "on" : "off"}
+              onPress={() => props.onEquipmentOverride({ [key]: !eq[key] })}
+            />
+          ))}
+          <Chip
+            tone="dark"
+            label="Sadece ocak"
+            variant={eq.stovetopOnly ? "on" : "off"}
+            onPress={() => props.onEquipmentOverride({ stovetopOnly: !eq.stovetopOnly, ...(!eq.stovetopOnly ? { hasOven: false } : {}) })}
+          />
         </View>
-      )}
 
-      <PrimaryButton label={props.isPending ? "Plan hazırlanıyor…" : "Planımı oluştur"} onPress={props.onGenerate} disabled={props.isPending} showArrow={false} />
+        <Text style={styles.groupLabel}>Alerjiler</Text>
+        <IngredientInput
+          tone="dark"
+          value={allergyDraft}
+          onChangeText={setAllergyDraft}
+          placeholder="Alerjen ekle (örn. fıstık)"
+          accessibilityLabel="Bu plan için alerjen ekle"
+          onSubmit={() => {
+            if (allergyDraft.trim()) props.onDietaryOverride({ allergies: [...diet.allergies, allergyDraft.trim()] });
+            setAllergyDraft("");
+          }}
+        />
+        {diet.allergies.length > 0 && (
+          <View style={[styles.chips, styles.chipsAfterInput]}>
+            {diet.allergies.map((item) => (
+              <Chip
+                key={item}
+                tone="dark"
+                label={item}
+                variant="danger"
+                onPress={() => props.onDietaryOverride({ allergies: diet.allergies.filter((i) => i !== item) })}
+              />
+            ))}
+          </View>
+        )}
 
-      {props.isPending && <GeneratingIndicator label="Haftalık plan hazırlanıyor, bu biraz sürebilir.." />}
+        <Text style={styles.groupLabel}>Kaçındıkların</Text>
+        <IngredientInput
+          tone="dark"
+          value={avoidedDraft}
+          onChangeText={setAvoidedDraft}
+          placeholder="Malzeme ekle (örn. patlıcan)"
+          accessibilityLabel="Bu plan için kaçınılacak malzeme ekle"
+          onSubmit={() => {
+            if (avoidedDraft.trim()) props.onDietaryOverride({ avoidedIngredients: [...diet.avoidedIngredients, avoidedDraft.trim()] });
+            setAvoidedDraft("");
+          }}
+        />
+        {diet.avoidedIngredients.length > 0 && (
+          <View style={[styles.chips, styles.chipsAfterInput]}>
+            {diet.avoidedIngredients.map((item) => (
+              <Chip
+                key={item}
+                tone="dark"
+                label={item}
+                variant="removable"
+                onPress={() => props.onDietaryOverride({ avoidedIngredients: diet.avoidedIngredients.filter((i) => i !== item) })}
+              />
+            ))}
+          </View>
+        )}
+      </View>
+
+      {props.errorMessage && <InfoBanner variant="danger" title="Plan oluşturulamadı" description={props.errorMessage} />}
+      {props.isPending && <GeneratingIndicator label="Haftalık planın hazırlanıyor…" />}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  card: { backgroundColor: colors.surfaceMuted, borderRadius: radius.panel, paddingHorizontal: space.lg },
-  row: { flexDirection: "row", justifyContent: "space-between", paddingVertical: space.md, borderBottomWidth: 1, borderBottomColor: colors.divider },
-  rowLabel: { fontFamily: textType.helper.font, fontSize: textType.helper.size, color: colors.inkMuted },
-  rowValue: { fontFamily: textType.body.font, fontSize: textType.helper.size, color: colors.ink, flexShrink: 1, textAlign: "right" },
-  tagRow: { flexDirection: "row", flexWrap: "wrap", gap: space.sm },
-  tag: { paddingHorizontal: space.md, paddingVertical: space.xs, borderRadius: radius.chip, backgroundColor: colors.brandSoft },
-  tagText: { fontFamily: textType.label.font, fontSize: 13, color: colors.brand },
-  errorBanner: { paddingHorizontal: space.lg, paddingVertical: space.md, borderRadius: radius.panel, backgroundColor: colors.dangerSoft },
-  errorText: { fontFamily: textType.helper.font, fontSize: textType.helper.size, color: colors.danger },
+  wrap: { gap: space.xl },
+  card: { backgroundColor: colors.nightTrack, borderRadius: radius.tile, paddingHorizontal: space.lg + 2, borderWidth: 1, borderColor: colors.nightDivider },
+  row: { flexDirection: "row", alignItems: "center", gap: space.md, paddingVertical: space.md + 2 },
+  rowDivider: { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.nightDivider },
+  flex: { flex: 1 },
+  rowLabel: { ...textStyle(type.caption), color: colors.onNightMuted },
+  rowValue: { ...textStyle(type.body), color: colors.onNight },
+  editButton: { paddingVertical: space.sm, paddingHorizontal: space.md, borderRadius: radius.pill, backgroundColor: colors.glassFill },
+  editText: { ...textStyle(type.caption), fontFamily: type.cardTitle.font, color: colors.onNight },
+  hint: { ...textStyle(type.helper), color: colors.onNightSecondary, marginTop: -4 },
+  groupLabel: { ...textStyle(type.helper), fontFamily: type.bodyMedium.font, color: colors.onNight, marginTop: space.lg, marginBottom: space.sm },
+  chips: { flexDirection: "row", flexWrap: "wrap", gap: space.sm },
+  chipsAfterInput: { marginTop: space.sm },
 });

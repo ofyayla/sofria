@@ -2,7 +2,7 @@ import * as Haptics from "expo-haptics";
 import { Check, type LucideIcon } from "lucide-react-native";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import Animated, { useAnimatedStyle, useSharedValue, withTiming } from "react-native-reanimated";
-import { colors, motion, radius, shadow, space, type as textType } from "../../theme";
+import { colors, motion, radius, space, textStyle, type, type Tone } from "../../theme";
 
 export interface SelectionCardProps {
   icon: LucideIcon;
@@ -10,45 +10,47 @@ export interface SelectionCardProps {
   subtitle?: string;
   selected: boolean;
   onPress: () => void;
+  tone?: Tone;
 }
 
-/**
- * design-system.md §5.3 — 2 sütunlu ızgarada kullanılır (mutfak seçimi,
- * diyet, alerji, ekipman). Basış: scale 0.96, 100ms, Haptics.impactAsync(Light).
- */
-export function SelectionCard({ icon: Icon, title, subtitle, selected, onPress }: SelectionCardProps) {
+/** İkonlu çoklu seçim kartı (mutfak ekipmanı). 2 sütunlu ızgarada kullanılır. */
+export function SelectionCard({ icon: Icon, title, subtitle, selected, onPress, tone = "light" }: SelectionCardProps) {
   const pressed = useSharedValue(0);
-
-  const animatedStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: 1 - pressed.value * 0.04 }],
-  }));
-
-  function handlePressIn() {
-    pressed.value = withTiming(1, { duration: motion.pressScaleMs });
-    void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-  }
-  function handlePressOut() {
-    pressed.value = withTiming(0, { duration: motion.pressScaleMs });
-  }
+  const animatedStyle = useAnimatedStyle(() => ({ transform: [{ scale: 1 - pressed.value * 0.04 }] }));
+  const dark = tone === "dark";
 
   return (
     <Pressable
       onPress={onPress}
-      onPressIn={handlePressIn}
-      onPressOut={handlePressOut}
-      accessibilityRole="button"
+      onPressIn={() => {
+        pressed.value = withTiming(1, { duration: motion.pressScaleMs });
+        void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      }}
+      onPressOut={() => (pressed.value = withTiming(0, { duration: motion.pressScaleMs }))}
+      accessibilityRole="checkbox"
       accessibilityLabel={subtitle ? `${title}, ${subtitle}` : title}
-      accessibilityState={{ selected }}
+      accessibilityState={{ checked: selected }}
     >
-      <Animated.View style={[styles.card, selected && styles.selected, animatedStyle]}>
+      <Animated.View
+        style={[
+          styles.card,
+          { backgroundColor: dark ? colors.nightTrack : colors.surface, borderColor: dark ? colors.glassBorder : "transparent" },
+          selected && { borderColor: dark ? colors.accent : colors.ink },
+          animatedStyle,
+        ]}
+      >
+        <View style={[styles.iconWrap, { backgroundColor: selected ? colors.accent : dark ? colors.glassFill : colors.canvas }]}>
+          <Icon size={22} color={selected ? colors.onAccent : dark ? colors.onNight : colors.ink} />
+        </View>
+        <View>
+          <Text style={[styles.title, { color: dark ? colors.onNight : colors.ink }]}>{title}</Text>
+          {subtitle && <Text style={[styles.subtitle, { color: dark ? colors.onNightMuted : colors.inkMuted }]}>{subtitle}</Text>}
+        </View>
         {selected && (
-          <View style={styles.badge}>
-            <Check size={14} color={colors.onBrand} strokeWidth={3} />
+          <View style={[styles.badge, { backgroundColor: dark ? colors.accent : colors.night }]}>
+            <Check size={14} color={dark ? colors.onAccent : colors.accent} strokeWidth={3} />
           </View>
         )}
-        <Icon size={40} color={colors.brand} strokeWidth={2} />
-        <Text style={[styles.title, selected && styles.titleSelected]}>{title}</Text>
-        {subtitle && <Text style={styles.subtitle}>{subtitle}</Text>}
       </Animated.View>
     </Pressable>
   );
@@ -56,41 +58,24 @@ export function SelectionCard({ icon: Icon, title, subtitle, selected, onPress }
 
 const styles = StyleSheet.create({
   card: {
-    aspectRatio: 1.05,
-    padding: 20,
-    borderRadius: radius.card,
-    backgroundColor: colors.surface,
-    justifyContent: "center",
-    gap: space.xs,
-    ...shadow.card,
+    minHeight: 112,
+    padding: space.lg,
+    borderRadius: radius.tile,
+    borderWidth: 2,
+    justifyContent: "space-between",
+    gap: space.md,
   },
-  selected: {
-    backgroundColor: colors.brandSoft,
-    borderWidth: 1.5,
-    borderColor: colors.brand,
-  },
+  iconWrap: { width: 44, height: 44, borderRadius: 22, alignItems: "center", justifyContent: "center" },
+  title: textStyle(type.cardTitle),
+  subtitle: textStyle(type.caption),
   badge: {
     position: "absolute",
-    top: -space.xs,
-    right: -space.xs,
-    width: 26,
-    height: 26,
-    borderRadius: 13,
-    backgroundColor: colors.brand,
+    top: space.md,
+    right: space.md,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
     alignItems: "center",
     justifyContent: "center",
-  },
-  title: {
-    fontFamily: textType.cardTitle.font,
-    fontSize: textType.cardTitle.size,
-    lineHeight: textType.cardTitle.lineHeight,
-    color: colors.ink,
-  },
-  titleSelected: { color: colors.brand },
-  subtitle: {
-    fontFamily: textType.cardSub.font,
-    fontSize: textType.cardSub.size,
-    lineHeight: textType.cardSub.lineHeight,
-    color: colors.inkMuted,
   },
 });

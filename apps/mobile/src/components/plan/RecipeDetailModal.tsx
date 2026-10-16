@@ -1,13 +1,14 @@
-import type { Meal, WeeklyPlanResponse } from "@sofria/shared";
+import type { WeeklyPlanResponse } from "@sofria/shared";
+import { dishIcon } from "../../lib/dishIcon";
+import { MEAL_TYPE_LABELS, ROLE_LABELS } from "../../lib/planDisplay";
 import { RecipeDetailSheet } from "../shared/RecipeDetailSheet";
 
 // Gerçek kullanıcı talebi: bir öğünün İKİ alt yemeği (örn. ana yemek + salata)
 // meal.title'ı PAYLAŞIR (bkz. catalogPlanBuilder.ts — meal başlığı ana
 // yemeğin adından türetilir). Salatayı açınca üstte hâlâ ana yemeğin adının
 // ("Etsiz Musakka") görünmesi kafa karıştırıyordu ("kalmış" gibi algılandı,
-// aslında veri doğruydu). Eyebrow artık öğün TÜRÜNÜ ("Akşam") gösteriyor —
-// bu her zaman doğru ve tarif adıyla asla çakışmıyor.
-const MEAL_TYPE_LABELS: Record<Meal["type"], string> = { kahvalti: "Kahvaltı", ogle: "Öğle", aksam: "Akşam" };
+// aslında veri doğruydu). Eyebrow artık öğün TÜRÜNÜ ve yemeğin rolünü
+// ("Akşam · Salata") gösteriyor — her zaman doğru, tarif adıyla asla çakışmıyor.
 
 export function RecipeDetailModal({
   plan,
@@ -27,7 +28,7 @@ export function RecipeDetailModal({
 
   return (
     <RecipeDetailSheet
-      mealTitle={MEAL_TYPE_LABELS[found.mealType]}
+      mealTitle={`${MEAL_TYPE_LABELS[found.mealType]} · ${ROLE_LABELS[found.sub.role]}`}
       recipeName={found.sub.name}
       servings={found.sub.servings}
       prepMinutes={found.sub.prepMinutes}
@@ -37,6 +38,7 @@ export function RecipeDetailModal({
       instructions={found.sub.instructions}
       cuisineTag={found.cuisineTag}
       imageSlug={found.sub.imageSlug}
+      fallbackIcon={dishIcon(found.sub.role, found.mealType)}
       source="weekly_plan"
       sourceMealId={found.mealId}
       sourceSubRecipeId={found.sub.subRecipeId}

@@ -1,6 +1,6 @@
 import { AlertTriangle, CircleAlert, Info, type LucideIcon } from "lucide-react-native";
 import { StyleSheet, Text, View } from "react-native";
-import { colors, radius, type as textType } from "../../theme";
+import { colors, radius, space, textStyle, type } from "../../theme";
 
 export type InfoBannerVariant = "neutral" | "positive" | "warning" | "danger";
 
@@ -12,22 +12,22 @@ export interface InfoBannerProps {
 }
 
 const VARIANT_STYLES: Record<InfoBannerVariant, { bg: string; fg: string; defaultIcon: LucideIcon }> = {
-  neutral: { bg: colors.surfaceMuted, fg: colors.inkSecondary, defaultIcon: Info },
-  positive: { bg: colors.brandSoft, fg: colors.brand, defaultIcon: Info },
+  neutral: { bg: colors.surface, fg: colors.inkSecondary, defaultIcon: Info },
+  positive: { bg: colors.successSoft, fg: colors.success, defaultIcon: Info },
   warning: { bg: colors.warningSoft, fg: colors.warning, defaultIcon: AlertTriangle },
   danger: { bg: colors.dangerSoft, fg: colors.danger, defaultIcon: CircleAlert },
 };
 
-/** design-system.md §5.7 — kenarlık yok, gölge yok; tıklanabilir değil. */
+/** Bilgi/uyarı kutusu — tıklanamaz; kenarlık ve gölge yok. */
 export function InfoBanner({ title, description, variant = "neutral", icon }: InfoBannerProps) {
   const { bg, fg, defaultIcon } = VARIANT_STYLES[variant];
   const Icon = icon ?? defaultIcon;
 
   return (
-    <View style={[styles.container, { backgroundColor: bg }]} accessibilityRole="text">
-      <Icon size={24} color={fg} style={styles.icon} />
+    <View style={[styles.container, { backgroundColor: bg }]} accessibilityRole={variant === "danger" ? "alert" : "text"}>
+      <Icon size={22} color={fg} style={styles.icon} />
       <View style={styles.textColumn}>
-        <Text style={[styles.title, { color: colors.ink }]}>{title}</Text>
+        <Text style={styles.title}>{title}</Text>
         {description && <Text style={styles.description}>{description}</Text>}
       </View>
     </View>
@@ -35,23 +35,9 @@ export function InfoBanner({ title, description, variant = "neutral", icon }: In
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flexDirection: "row",
-    borderRadius: radius.panel,
-    padding: 16,
-    gap: 12,
-  },
-  icon: { marginTop: 2 },
+  container: { flexDirection: "row", borderRadius: radius.tile, padding: space.lg, gap: space.md },
+  icon: { marginTop: 1 },
   textColumn: { flex: 1, gap: 2 },
-  title: {
-    fontFamily: textType.cardTitle.font,
-    fontSize: textType.cardTitle.size,
-    lineHeight: textType.cardTitle.lineHeight,
-  },
-  description: {
-    fontFamily: textType.helper.font,
-    fontSize: textType.helper.size,
-    lineHeight: textType.helper.lineHeight,
-    color: colors.inkSecondary,
-  },
+  title: { ...textStyle(type.cardTitle), fontSize: 15, color: colors.ink },
+  description: { ...textStyle(type.helper), color: colors.inkSecondary },
 });

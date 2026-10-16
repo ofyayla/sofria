@@ -1,82 +1,77 @@
 import * as Haptics from "expo-haptics";
 import { Minus, Plus } from "lucide-react-native";
 import { Pressable, StyleSheet, Text, View } from "react-native";
-import { colors, tabularNums, type as textType } from "../../theme";
+import { colors, radius, space, tabularNums, textStyle, type, type Tone } from "../../theme";
 
 export interface StepperProps {
+  label: string;
   value: number;
   min: number;
   max: number;
   onChange: (value: number) => void;
-  /** "Her tarif {value} porsiyon çıkacak." gibi sonuç cümlesi — altında HER ZAMAN gösterilir. */
-  resultLabel: string;
+  /** Satırın altında her zaman görünen sonuç cümlesi ("Toplam 4 kişilik"). */
+  hint?: string;
+  tone?: Tone;
 }
 
-/** design-system.md §5.5 — kişi sayısı. Sınırda buton %35 opaklığa düşer, haptik vermez. */
-export function Stepper({ value, min, max, onChange, resultLabel }: StepperProps) {
+/**
+ * Satır biçimli sayaç: [etiket ............ (−) 2 (+)]. Sınırda buton
+ * soluklaşır ve haptik vermez.
+ */
+export function Stepper({ label, value, min, max, onChange, hint, tone = "dark" }: StepperProps) {
   const atMin = value <= min;
   const atMax = value >= max;
+  const dark = tone === "dark";
+  const fg = dark ? colors.onNight : colors.ink;
 
-  function decrement() {
-    if (atMin) return;
+  function change(next: number) {
     void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    onChange(value - 1);
-  }
-  function increment() {
-    if (atMax) return;
-    void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    onChange(value + 1);
+    onChange(next);
   }
 
   return (
-    <View>
+    <View style={[styles.box, { backgroundColor: dark ? colors.nightTrack : colors.surface }]}>
       <View style={styles.row}>
-        <Pressable
-          onPress={decrement}
-          disabled={atMin}
-          accessibilityRole="button"
-          accessibilityLabel="Azalt"
-          hitSlop={8}
-          style={[styles.circle, atMin && styles.circleDisabled]}
-        >
-          <Minus size={22} color={colors.brand} />
-        </Pressable>
-        <Text style={[styles.value, tabularNums]}>{value}</Text>
-        <Pressable
-          onPress={increment}
-          disabled={atMax}
-          accessibilityRole="button"
-          accessibilityLabel="Artır"
-          hitSlop={8}
-          style={[styles.circle, atMax && styles.circleDisabled]}
-        >
-          <Plus size={22} color={colors.brand} />
-        </Pressable>
+        <Text style={[styles.label, { color: fg }]}>{label}</Text>
+        <View style={styles.controls}>
+          <Pressable
+            onPress={() => !atMin && change(value - 1)}
+            disabled={atMin}
+            accessibilityRole="button"
+            accessibilityLabel={`${label} azalt`}
+            hitSlop={6}
+            style={[styles.circle, { backgroundColor: dark ? colors.glassFill : colors.surfaceMuted }, atMin && styles.circleDisabled]}
+          >
+            <Minus size={20} color={fg} />
+          </Pressable>
+          <Text style={[styles.value, tabularNums, { color: fg }]} accessibilityLiveRegion="polite">
+            {value}
+          </Text>
+          <Pressable
+            onPress={() => !atMax && change(value + 1)}
+            disabled={atMax}
+            accessibilityRole="button"
+            accessibilityLabel={`${label} artır`}
+            hitSlop={6}
+            style={[styles.circle, styles.plus, atMax && styles.circleDisabled]}
+          >
+            <Plus size={20} color={colors.onAccent} />
+          </Pressable>
+        </View>
       </View>
-      <Text style={styles.resultLabel}>{resultLabel}</Text>
+      {hint && <Text style={[styles.hint, { color: dark ? colors.onNightMuted : colors.inkMuted }]}>{hint}</Text>}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  row: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 24 },
-  circle: { width: 56, height: 56, borderRadius: 28, backgroundColor: colors.brandSoft, alignItems: "center", justifyContent: "center" },
+  box: { borderRadius: radius.card, paddingHorizontal: space.xl - 4, paddingVertical: space.lg, gap: space.sm },
+  row: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  label: textStyle(type.bodyMedium),
+  controls: { flexDirection: "row", alignItems: "center", gap: space.md },
+  circle: { width: 44, height: 44, borderRadius: 22, alignItems: "center", justifyContent: "center" },
+  plus: { backgroundColor: colors.accent },
   circleDisabled: { opacity: 0.35 },
-  value: {
-    fontFamily: textType.hero.font,
-    fontSize: textType.hero.size,
-    lineHeight: textType.hero.lineHeight,
-    letterSpacing: textType.hero.letterSpacing,
-    color: textType.hero.color,
-    minWidth: 80,
-    textAlign: "center",
-  },
-  resultLabel: {
-    marginTop: 12,
-    textAlign: "center",
-    fontFamily: textType.helper.font,
-    fontSize: textType.helper.size,
-    lineHeight: textType.helper.lineHeight,
-    color: textType.helper.color,
-  },
+  value: { ...textStyle(type.heading), minWidth: 36, textAlign: "center" },
+  hint: textStyle(type.caption),
 });

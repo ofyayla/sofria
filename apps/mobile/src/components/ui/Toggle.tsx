@@ -1,5 +1,7 @@
+import * as Haptics from "expo-haptics";
 import { Pressable, StyleSheet } from "react-native";
-import Animated, { useAnimatedStyle, withSpring } from "react-native-reanimated";
+import { useEffect } from "react";
+import Animated, { useAnimatedStyle, useSharedValue, withSpring } from "react-native-reanimated";
 import { colors } from "../../theme";
 
 export interface ToggleProps {
@@ -8,33 +10,38 @@ export interface ToggleProps {
   accessibilityLabel: string;
 }
 
-const WIDTH = 62;
+const WIDTH = 58;
 const HEIGHT = 34;
 const THUMB_SIZE = 28;
 const PADDING = 3;
 
 /**
- * design-system.md §5.9 — native Switch YERİNE özel bileşen. iOS'un sistem
- * yeşili markadan farklı, yan yana geldiğinde kirli görünür.
+ * Native Switch yerine özel bileşen. Açık: gece zemini + lime düğme —
+ * lime açık zeminde tek başına seçilemeyecek kadar soluk olduğu için ray
+ * koyu, vurgu düğmede.
  */
 export function Toggle({ value, onValueChange, accessibilityLabel }: ToggleProps) {
-  const thumbStyle = useAnimatedStyle(() => ({
-    transform: [{ translateX: withSpring(value ? WIDTH - THUMB_SIZE - PADDING : PADDING, { damping: 16, stiffness: 180 }) }],
-  }));
-  const trackStyle = useAnimatedStyle(() => ({
-    backgroundColor: withSpring(value ? colors.brand : colors.divider, { damping: 20, stiffness: 200 }),
-  }));
+  // Konum paylaşılan değerde; renkler düz stil. Prop'u doğrudan
+  // useAnimatedStyle içinde okumak web'de güncellenmiyordu (bkz. ProgressSteps).
+  const x = useSharedValue(value ? WIDTH - THUMB_SIZE - PADDING : PADDING);
+  useEffect(() => {
+    x.value = withSpring(value ? WIDTH - THUMB_SIZE - PADDING : PADDING, { damping: 16, stiffness: 180 });
+  }, [value, x]);
+  const thumbStyle = useAnimatedStyle(() => ({ transform: [{ translateX: x.value }] }));
 
   return (
     <Pressable
-      onPress={() => onValueChange(!value)}
+      onPress={() => {
+        void Haptics.selectionAsync();
+        onValueChange(!value);
+      }}
       accessibilityRole="switch"
       accessibilityLabel={accessibilityLabel}
       accessibilityState={{ checked: value }}
       hitSlop={8}
     >
-      <Animated.View style={[styles.track, trackStyle]}>
-        <Animated.View style={[styles.thumb, thumbStyle]} />
+      <Animated.View style={[styles.track, { backgroundColor: value ? colors.night : colors.surfaceMuted }]}>
+        <Animated.View style={[styles.thumb, { backgroundColor: value ? colors.accent : colors.surface }, thumbStyle]} />
       </Animated.View>
     </Pressable>
   );
@@ -42,11 +49,5 @@ export function Toggle({ value, onValueChange, accessibilityLabel }: ToggleProps
 
 const styles = StyleSheet.create({
   track: { width: WIDTH, height: HEIGHT, borderRadius: HEIGHT / 2, justifyContent: "center" },
-  thumb: {
-    position: "absolute",
-    width: THUMB_SIZE,
-    height: THUMB_SIZE,
-    borderRadius: THUMB_SIZE / 2,
-    backgroundColor: colors.surface,
-  },
+  thumb: { position: "absolute", width: THUMB_SIZE, height: THUMB_SIZE, borderRadius: THUMB_SIZE / 2 },
 });

@@ -1,46 +1,40 @@
 import type { UserPreferencesPayload } from "@sofria/shared";
 import { useRouter } from "expo-router";
+import { Sparkles } from "lucide-react-native";
 import { useState } from "react";
-import { StyleSheet, Text, View } from "react-native";
-import { ComplexityStep } from "../components/wizard/ComplexityStep";
-import { CuisineStep } from "../components/wizard/CuisineStep";
-import { DietaryOverrideStep } from "../components/wizard/DietaryOverrideStep";
-import { EquipmentOverrideStep } from "../components/wizard/EquipmentOverrideStep";
-import { HouseholdBudgetStep } from "../components/wizard/HouseholdBudgetStep";
-import { MealSelectionStep } from "../components/wizard/MealSelectionStep";
+import { HouseholdStep } from "../components/wizard/HouseholdStep";
+import { MenuStep } from "../components/wizard/MenuStep";
 import { SummaryStep } from "../components/wizard/SummaryStep";
 import { PrimaryButton, WizardScreen } from "../components/ui";
 import { useGeneratePlan } from "../hooks/useGeneratePlan";
 import { mergeDietary, mergeEquipment } from "../lib/mergeConstraints";
-import { colors, radius, space, type as textType } from "../theme";
 import { usePlanStore } from "../stores/plan.store";
 import { usePreferencesStore } from "../stores/preferences.store";
 import { useRulesProfileStore } from "../stores/rulesProfile.store";
 
-// Gerçek kullanıcı talebi: "hangi öğünler dahil olsun?" kendi bağımsız
-// sayfası — hane seçiminden hemen sonra, 2. adım (index 1).
-const STEP_TITLES = ["Hane", "Öğünler", "Mutfak seçimi", "Diyet & alerji", "Mutfak ekipmanı", "Öğün çeşidi", "Özet"];
-const TOTAL_STEPS = STEP_TITLES.length;
+const STEPS = [
+  { muted: "Kim", strong: "yiyor?", caption: "Porsiyonlar\nbuna göre" },
+  { muted: "Ne", strong: "yiyelim?", caption: "Birden fazla\nseçebilirsin" },
+  { muted: "Son", strong: "kontrol", caption: "Hazırsan\noluşturalım" },
+] as const;
+const TOTAL_STEPS = STEPS.length;
 
 /**
  * Gerçek kullanıcı talebi: pişirme becerisi ve öğün başına hazırlık süresi
- * artık kullanıcıya SORULMUYOR. Beceri her zaman "orta" kabul edilir; süre
- * genelde ~1 saatte hazırlanabilecek tarifleri hedefler (bkz.
- * catalogPlanBuilder.ts filterByTime — prepMinutes+cookMinutes ≤ 60).
+ * kullanıcıya SORULMUYOR. Beceri her zaman "orta"; süre ~1 saatte
+ * hazırlanabilecek tarifleri hedefler (bkz. catalogPlanBuilder.ts filterByTime).
  */
 const FIXED_COOKING_SKILL = "orta" as const;
 const FIXED_MAX_PREP_MINUTES = 60;
 
 /**
- * design-system.md §11.4 — sihirbaz WizardScreen üzerinden kuruldu.
- * F9.5'teki tek-ekranlık form dosyası burada tamamen yeniden yazıldı
- * (silinip yerine eklenmedi) — web'in 6 adımlı yapısıyla birebir aynı
- * alan/mantık (bkz. PreferenceWizard.tsx), yalnızca görsel bileşenler ayrı.
+ * Plan sihirbazı — 3 adım: Kim yiyor? → Ne yiyelim? → Son kontrol.
+ * (Eskiden 7 adımdı; diyet ve ekipman "Kurallarım"dan geldiği için son
+ * adıma katlandı, öğün/çeşit/mutfak tek ekranda.)
  */
 export default function PlanWizardScreen() {
   const router = useRouter();
   const [step, setStep] = useState(0);
-  const [validationError, setValidationError] = useState<string | null>(null);
 
   const prefs = usePreferencesStore();
   const rulesProfile = useRulesProfileStore();
@@ -51,55 +45,34 @@ export default function PlanWizardScreen() {
   const effectiveEquipment = mergeEquipment(rulesProfile.equipment, prefs.sessionEquipmentOverrides);
 
   /**
-   * Gerçek kullanıcı testinde bulundu (web tarafında): hiçbir alanın
-   * varsayılan bir seçimi olmamalı ve "İleri"ye basınca sessizce
-   * engellemek yerine HANGİ alan(lar)ın eksik olduğunu söylemeli.
-   * Adımlar burada 0-indexli: 0=hane, 1=öğünler, 2=mutfak, 3=diyet, 4=ekipman, 5=çeşit, 6=özet.
+   * Gerçek kullanıcı testi: "İleri" sessizce engellenmemeli, HANGİ alanın
+   * eksik olduğunu söylemeli. Eksik olan şey artık doğrudan CTA etiketinde.
    */
-  function missingFieldsForStep(currentStep: number): string[] {
-    const missing: string[] = [];
+  function missingForStep(currentStep: number): string | null {
     if (currentStep === 0) {
-      // Not: AsyncStorage'dan JSON round-trip sonrası doldurulmamış yaş
-      // slotları `undefined` değil `null` olarak geri gelir — ikisini de yakala.
-      if (prefs.childAges.slice(0, prefs.householdChildren).some((age) => age == null)) {
-        missing.push("Çocukların yaşları");
-      }
+      // AsyncStorage JSON round-trip'inden sonra boş yaş slotları `null` gelir.
+      if (prefs.childAges.slice(0, prefs.householdChildren).some((age) => age == null)) return "Çocukların yaşını seç";
     }
-    if (currentStep === 1 && prefs.includedMeals.length === 0) {
-      missing.push("En az bir öğün");
+    if (currentStep === 1) {
+      if (prefs.includedMeals.length === 0) return "En az 1 öğün seç";
+      if (prefs.includedMeals.includes("ogle") && !prefs.mealComplexity.lunch) return "Öğle için çeşit seç";
+      if (prefs.includedMeals.includes("aksam") && !prefs.mealComplexity.dinner) return "Akşam için çeşit seç";
+      if (prefs.cuisinePreferences.length === 0) return "En az 1 mutfak seç";
     }
-    if (currentStep === 2 && prefs.cuisinePreferences.length === 0) {
-      missing.push("En az bir mutfak");
+    if (currentStep === 2) {
+      const e = effectiveEquipment;
+      if (!(e.hasOven || e.hasAirFryer || e.hasPressureCooker || e.hasBlender || e.stovetopOnly)) return "En az 1 ekipman seç";
     }
-    if (currentStep === 4) {
-      const hasAnyEquipment =
-        effectiveEquipment.hasOven ||
-        effectiveEquipment.hasAirFryer ||
-        effectiveEquipment.hasPressureCooker ||
-        effectiveEquipment.hasBlender ||
-        effectiveEquipment.stovetopOnly;
-      if (!hasAnyEquipment) missing.push("En az bir mutfak ekipmanı");
-    }
-    if (currentStep === 5) {
-      if (prefs.includedMeals.includes("ogle") && !prefs.mealComplexity.lunch) missing.push("Öğle yemeği çeşidi");
-      if (prefs.includedMeals.includes("aksam") && !prefs.mealComplexity.dinner) missing.push("Akşam yemeği çeşidi");
-    }
-    return missing;
+    return null;
   }
 
-  function goNext() {
-    const missing = missingFieldsForStep(step);
-    if (missing.length > 0) {
-      setValidationError(`Lütfen şunu seçin: ${missing.join(", ")}`);
-      return;
-    }
-    setValidationError(null);
-    setStep((s) => Math.min(s + 1, TOTAL_STEPS - 1));
+  function close() {
+    router.back();
   }
+
   function goBack() {
-    setValidationError(null);
     if (step === 0) {
-      router.back();
+      close();
       return;
     }
     setStep((s) => s - 1);
@@ -127,28 +100,30 @@ export default function PlanWizardScreen() {
     if (response.ok) {
       setPlan(response.data);
       prefs.clearSessionOverrides();
-      router.replace(`/plan/${response.data.planId}`);
+      // Sihirbaz sekmelerin üstünde modal: kapat ve Plan sekmesine geç.
+      if (router.canDismiss()) router.dismissTo("/haftam");
+      else router.replace("/haftam");
     }
   }
 
+  const missing = missingForStep(step);
   const isLastStep = step === TOTAL_STEPS - 1;
+  const cta = isLastStep ? (
+    <PrimaryButton
+      label={missing ?? (generatePlan.isPending ? "Plan hazırlanıyor…" : "Planımı oluştur")}
+      disabled={Boolean(missing)}
+      loading={generatePlan.isPending}
+      {...(missing ? {} : { icon: Sparkles })}
+      onPress={() => void handleGenerate()}
+    />
+  ) : (
+    <PrimaryButton label={missing ?? "Devam"} disabled={Boolean(missing)} showArrow onPress={() => setStep((s) => s + 1)} />
+  );
 
   return (
-    <WizardScreen
-      title={STEP_TITLES[step]!}
-      stepIndex={step}
-      totalSteps={TOTAL_STEPS}
-      onBack={goBack}
-      cta={isLastStep ? undefined : <PrimaryButton label="İleri" onPress={goNext} showArrow={false} />}
-    >
-      {validationError && (
-        <View style={styles.errorBanner}>
-          <Text style={styles.errorText}>{validationError}</Text>
-        </View>
-      )}
-
+    <WizardScreen stepIndex={step} totalSteps={TOTAL_STEPS} headline={STEPS[step]!} onBack={goBack} onClose={close} cta={cta}>
       {step === 0 && (
-        <HouseholdBudgetStep
+        <HouseholdStep
           householdAdults={prefs.householdAdults}
           householdChildren={prefs.householdChildren}
           childAges={prefs.childAges}
@@ -157,46 +132,34 @@ export default function PlanWizardScreen() {
           onChildAgeChange={prefs.setChildAge}
         />
       )}
-      {step === 1 && <MealSelectionStep includedMeals={prefs.includedMeals} onToggleMeal={prefs.toggleIncludedMeal} />}
-      {step === 2 && <CuisineStep selected={prefs.cuisinePreferences} onToggle={prefs.toggleCuisine} />}
-      {step === 3 && <DietaryOverrideStep effectiveDietary={effectiveDietary} onOverride={prefs.setSessionDietaryOverride} />}
-      {step === 4 && <EquipmentOverrideStep effectiveEquipment={effectiveEquipment} onOverride={prefs.setSessionEquipmentOverride} />}
-      {step === 5 && (
-        <ComplexityStep
+      {step === 1 && (
+        <MenuStep
           includedMeals={prefs.includedMeals}
+          onToggleMeal={prefs.toggleIncludedMeal}
           lunch={prefs.mealComplexity.lunch}
           dinner={prefs.mealComplexity.dinner}
-          onChange={prefs.setMealComplexity}
+          onComplexityChange={prefs.setMealComplexity}
+          cuisines={prefs.cuisinePreferences}
+          onToggleCuisine={prefs.toggleCuisine}
         />
       )}
-      {step === 6 && (
+      {step === 2 && (
         <SummaryStep
           householdAdults={prefs.householdAdults}
           householdChildren={prefs.householdChildren}
           childAges={prefs.childAges}
           includedMeals={prefs.includedMeals}
           cuisinePreferences={prefs.cuisinePreferences}
+          mealComplexity={prefs.mealComplexity}
           effectiveDietary={effectiveDietary}
           effectiveEquipment={effectiveEquipment}
-          mealComplexity={prefs.mealComplexity}
+          onDietaryOverride={prefs.setSessionDietaryOverride}
+          onEquipmentOverride={prefs.setSessionEquipmentOverride}
+          onEditStep={setStep}
           isPending={generatePlan.isPending}
-          errorMessage={
-            generatePlan.isError ? "Planı oluştururken bir hata oluştu. Lütfen tekrar deneyin." : undefined
-          }
-          onGenerate={handleGenerate}
+          errorMessage={generatePlan.isError ? "Lütfen tekrar deneyin." : undefined}
         />
       )}
     </WizardScreen>
   );
 }
-
-const styles = StyleSheet.create({
-  errorBanner: {
-    paddingHorizontal: space.lg,
-    paddingVertical: space.md,
-    borderRadius: radius.panel,
-    backgroundColor: colors.dangerSoft,
-    marginBottom: space.lg,
-  },
-  errorText: { fontFamily: textType.helper.font, fontSize: textType.helper.size, color: colors.danger },
-});

@@ -1,18 +1,11 @@
-// pisir-ai-design-system.md §3 — birebir port. Gölge yeşile çalar, asla
-// siyah değil — siyah gölge pastel zemini griye çevirir (bkz. §12 Yasaklılar).
+// v2: yüzeyler gölgeyle değil kontrast ve camla ayrışır. Gölge yalnızca
+// içeriğin ÜSTÜNDE yüzen öğelerde (alt bar, birincil CTA) kullanılır.
 export const shadow = {
-  card: {
-    shadowColor: "#3E6B4E",
-    shadowOpacity: 0.1,
-    shadowRadius: 14,
-    shadowOffset: { width: 0, height: 6 },
-    elevation: 2,
-  },
-  cta: {
-    shadowColor: "#3E8E63",
-    shadowOpacity: 0.26,
-    shadowRadius: 20,
-    shadowOffset: { width: 0, height: 8 },
-    elevation: 6,
+  floating: {
+    shadowColor: "#000000",
+    shadowOpacity: 0.22,
+    shadowRadius: 24,
+    shadowOffset: { width: 0, height: 10 },
+    elevation: 10,
   },
 } as const;

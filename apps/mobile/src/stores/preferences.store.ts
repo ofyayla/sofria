@@ -29,7 +29,7 @@ export interface PreferencesDraftState {
 
   setHouseholdAdults: (count: number) => void;
   setHouseholdChildren: (count: number) => void;
-  setChildAge: (index: number, age: number) => void;
+  setChildAge: (index: number, age: number | undefined) => void;
   setMealComplexity: (part: Partial<{ lunch: MealComplexity | undefined; dinner: MealComplexity | undefined }>) => void;
   toggleIncludedMeal: (meal: MealType) => void;
   toggleCuisine: (cuisine: CuisineType) => void;

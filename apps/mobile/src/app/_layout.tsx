@@ -1,28 +1,26 @@
-import { Figtree_700Bold, Figtree_800ExtraBold } from "@expo-google-fonts/figtree";
-import { Inter_400Regular, Inter_500Medium, Inter_600SemiBold, useFonts } from "@expo-google-fonts/inter";
+import { Figtree_400Regular, Figtree_500Medium, Figtree_600SemiBold, Figtree_700Bold, useFonts } from "@expo-google-fonts/figtree";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
 import { useEffect } from "react";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
-import { SafeAreaProvider } from "react-native-safe-area-context";
+import { initialWindowMetrics, SafeAreaProvider } from "react-native-safe-area-context";
 import { useHydrateStores } from "../lib/hydrateStores";
 import { queryClient } from "../lib/queryClient";
+import { colors } from "../theme";
 
 void SplashScreen.preventAutoHideAsync();
 
 export default function RootLayout() {
   useHydrateStores();
 
-  // design-system.md §2: sistem fontuna asla düşülmez — useFonts
-  // yüklenene kadar splash ekranı tutulur.
+  // Sistem fontuna asla düşülmez — fontlar yüklenene kadar splash tutulur.
   const [fontsLoaded] = useFonts({
+    Figtree_400Regular,
+    Figtree_500Medium,
+    Figtree_600SemiBold,
     Figtree_700Bold,
-    Figtree_800ExtraBold,
-    Inter_400Regular,
-    Inter_500Medium,
-    Inter_600SemiBold,
   });
 
   useEffect(() => {
@@ -32,11 +30,17 @@ export default function RootLayout() {
   if (!fontsLoaded) return null;
 
   return (
-    <GestureHandlerRootView style={{ flex: 1 }}>
-      <SafeAreaProvider>
+    <GestureHandlerRootView style={{ flex: 1, backgroundColor: colors.night }}>
+      <SafeAreaProvider initialMetrics={initialWindowMetrics}>
         <QueryClientProvider client={queryClient}>
-          <StatusBar style="dark" />
-          <Stack screenOptions={{ headerShown: false }} />
+          <StatusBar style="light" />
+          <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.night } }}>
+            <Stack.Screen name="(tabs)" />
+            {/* Sihirbaz: sekmelerin üstünde tam ekran modal — kapatınca kaldığın yere dönersin. */}
+            <Stack.Screen name="plan" options={{ presentation: "fullScreenModal", animation: "slide_from_bottom" }} />
+            <Stack.Screen name="kurallarim" options={{ contentStyle: { backgroundColor: colors.canvas } }} />
+            <Stack.Screen name="tariflerim" options={{ contentStyle: { backgroundColor: colors.canvas } }} />
+          </Stack>
         </QueryClientProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>

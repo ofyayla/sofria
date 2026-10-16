@@ -3,6 +3,7 @@ import { useEffect } from "react";
 import { usePlanStore } from "../stores/plan.store";
 import { usePreferencesStore } from "../stores/preferences.store";
 import { useRatingsStore } from "../stores/ratings.store";
+import { useSavedRecipesStore } from "../stores/savedRecipes.store";
 import { useRulesProfileStore } from "../stores/rulesProfile.store";
 import { useShoppingStore } from "../stores/shopping.store";
 
@@ -30,5 +31,6 @@ export function useHydrateStores(): void {
     });
     void useShoppingStore.persist.rehydrate();
     void useRatingsStore.persist.rehydrate();
+    void useSavedRecipesStore.persist.rehydrate();
   }, []);
 }

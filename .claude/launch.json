@@ -4,14 +4,38 @@
     {
       "name": "api",
       "runtimeExecutable": "pnpm",
-      "runtimeArgs": ["--filter", "@sofria/api", "dev"],
+      "runtimeArgs": [
+        "--filter",
+        "@sofria/api",
+        "dev"
+      ],
       "port": 4000
     },
     {
       "name": "web",
       "runtimeExecutable": "pnpm",
-      "runtimeArgs": ["--filter", "@sofria/web", "dev"],
+      "runtimeArgs": [
+        "--filter",
+        "@sofria/web",
+        "dev"
+      ],
       "port": 3000
+    },
+    {
+      "name": "mobile-web",
+      "runtimeExecutable": "corepack",
+      "runtimeArgs": [
+        "pnpm",
+        "--filter",
+        "@sofria/mobile",
+        "exec",
+        "expo",
+        "start",
+        "--web",
+        "--port",
+        "8081"
+      ],
+      "port": 8081
     }
   ]
 }
